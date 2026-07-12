@@ -53,7 +53,9 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState(null)
   const [bestand, setBestand] = useState({ lager: 0, bz: 0 })
+  const [bestandInput, setBestandInput] = useState({ lager: '', bz: '' })
   const [bestandLoading, setBestandLoading] = useState(true)
+  const [bestandAutoSaveStatus, setBestandAutoSaveStatus] = useState(null)
   const [fehler, setFehler] = useState({})
 
   const parsed = parseEinheit(artikel?.einheit)
@@ -98,8 +100,58 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
 
   async function ladenBestand() {
     const { data } = await supabase.from('artikel_bestand').select('lager_bestand, bz_bestand').eq('id', artikel.id).single()
-    if (data) setBestand({ lager: data.lager_bestand, bz: data.bz_bestand })
+    if (data) {
+      setBestand({ lager: data.lager_bestand, bz: data.bz_bestand })
+      setBestandInput({ lager: String(data.lager_bestand), bz: String(data.bz_bestand) })
+    }
     setBestandLoading(false)
+  }
+
+  // Auto-Save für Bestandsänderungen
+  useEffect(() => {
+    if (isNeu || !bestandInput.lager) return
+    const timer = setTimeout(() => {
+      bestandAutoSave()
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [bestandInput])
+
+  async function bestandAutoSave() {
+    if (isNeu || !artikel?.id) return
+
+    const neuLager = parseFloat(bestandInput.lager) || 0
+    const neuBz = parseFloat(bestandInput.bz) || 0
+    const diffLager = neuLager - bestand.lager
+    const diffBz = neuBz - bestand.bz
+
+    if (diffLager === 0 && diffBz === 0) return
+
+    setBestandAutoSaveStatus('speichert...')
+
+    try {
+      // Lager-Differenz buchen
+      if (diffLager !== 0) {
+        if (diffLager > 0) {
+          await supabase.from('chargen').insert({ artikel_id: artikel.id, menge: diffLager, lagerort: 'lager', charge_nr: null, verfallsdatum: null })
+        }
+        await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge: diffLager, typ: diffLager > 0 ? 'wareneingang' : 'verbrauch', notiz: 'Bestandskorrektur' })
+      }
+
+      // BZ-Differenz buchen
+      if (diffBz !== 0) {
+        if (diffBz > 0) {
+          await supabase.from('chargen').insert({ artikel_id: artikel.id, menge: diffBz, lagerort: 'behandlungsraum', charge_nr: null, verfallsdatum: null })
+        }
+        await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge: diffBz, typ: diffBz > 0 ? 'wareneingang' : 'verbrauch', notiz: 'Bestandskorrektur BZ' })
+      }
+
+      setBestand({ lager: neuLager, bz: neuBz })
+      setBestandAutoSaveStatus('✓ Gespeichert')
+      setTimeout(() => setBestandAutoSaveStatus(null), 2000)
+    } catch (err) {
+      setBestandAutoSaveStatus('❌ Fehler')
+      setTimeout(() => setBestandAutoSaveStatus(null), 3000)
+    }
   }
 
   // Auto-Save mit Debounce
@@ -360,33 +412,34 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
               </div>
             </div>
 
-            {/* Bestand anzeigen + Quick Wareneingang */}
+            {/* Bestand Eingabe */}
             {!isNeu && (
-              <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db' }}>
-                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>Bestand</p>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                  {[['Lager', bestand.lager], ['Behandlungsraum', bestand.bz]].map(([name, val]) => (
-                    <div key={name}>
-                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 2px' }}>{name}</p>
-                      <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '14px', fontWeight: 600, color: '#1a2e2a', margin: 0 }}>{val} {artikel.einheit}</p>
+              <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Bestand ({artikel.einheit})</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Lager</p>
+                      <input type="number" min="0" step="0.5" value={bestandInput.lager}
+                        onChange={e => setBestandInput(b => ({ ...b, lager: e.target.value }))}
+                        style={inp(false)} />
                     </div>
-                  ))}
+                    <div>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Behandlungsraum</p>
+                      <input type="number" min="0" step="0.5" value={bestandInput.bz}
+                        onChange={e => setBestandInput(b => ({ ...b, bz: e.target.value }))}
+                        style={inp(false)} />
+                    </div>
+                  </div>
+                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '8px 0 0' }}>
+                    Gesamt: <strong>{parseFloat(bestandInput.lager || 0) + parseFloat(bestandInput.bz || 0)}</strong>
+                  </p>
                 </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <input type="number" min="0.01" step="0.5" placeholder="Menge" id="quickWare"
-                    style={{ ...inp(false), flex: 1, fontSize: '13px' }} />
-                  <button onClick={async () => {
-                    const menge = parseFloat(document.getElementById('quickWare').value)
-                    if (!menge) return
-                    await supabase.from('chargen').insert({ artikel_id: artikel.id, menge, lagerort: 'lager', charge_nr: null, verfallsdatum: null })
-                    await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge, typ: 'wareneingang', notiz: 'Quick hinzufügen' })
-                    document.getElementById('quickWare').value = ''
-                    setBestand(b => ({ ...b, lager: b.lager + menge }))
-                  }}
-                    style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', padding: '8px 14px', borderRadius: '7px', border: 'none', background: '#9ad89e', color: '#1a2e2a', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    + Lager
-                  </button>
-                </div>
+                {bestandAutoSaveStatus && (
+                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: bestandAutoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: '0 0 0 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    {bestandAutoSaveStatus}
+                  </p>
+                )}
               </div>
             )}
 
