@@ -12,6 +12,11 @@ const inp = (err) => ({
 })
 const row2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }
 
+function stueckProEinheit(einheit) {
+  const m = einheit?.match(/^P\/(\d+)/)
+  return m ? parseInt(m[1]) : null
+}
+
 const DEFAULT_KATEGORIEN = ['Handschuhe', 'Kanülen / Spritzen', 'Verbandsmaterial', 'Desinfektion', 'Medikamente', 'Ultraschall / EKG', 'Sonstiges']
 
 // Einheit aus gespeichertem String ableiten
