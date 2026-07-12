@@ -318,17 +318,17 @@ export default function Artikel() {
                         onDragLeave={handleDragLeaveRow}
                         onDrop={() => handleDropRow(sortArtikelInKategorie(liste, farben), i)}
                         onClick={() => toggleAuswahl(a.id)}
-                        style={{ borderBottom: i < liste.length - 1 ? '1px solid #f7faf9' : 'none', borderTop: hoverRowId === a.id && draggedArtikel?.kategorie === a.kategorie ? '3px solid #3d675e' : 'none', background: ausgewaehlt.has(a.id) ? '#f0f5f4' : draggedArtikel?.id === a.id ? '#e8f5e9' : 'transparent', cursor: draggedArtikel ? 'grabbing' : 'pointer', opacity: draggedArtikel?.id === a.id ? 0.5 : 1 }}>
+                        style={{ borderBottom: i < liste.length - 1 ? '1px solid #f7faf9' : 'none', borderTop: hoverRowId === a.id && draggedArtikel?.kategorie === a.kategorie ? '3px solid #3d675e' : 'none', background: ausgewaehlt.has(a.id) ? '#f0f5f4' : draggedArtikel?.id === a.id ? '#e8f5e9' : 'transparent', cursor: draggedArtikel ? 'grabbing' : 'pointer', opacity: draggedArtikel?.id === a.id ? 0.5 : 1, verticalAlign: 'middle' }}>
                         <td style={{ padding: '8px 16px' }} onClick={e => e.stopPropagation()}>
                           <input type="checkbox" checked={ausgewaehlt.has(a.id)} onChange={() => toggleAuswahl(a.id)}
                             style={{ cursor: 'pointer', accentColor: '#3d675e' }} />
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#1a2e2a', fontWeight: a.kritisch ? 500 : 400 }}>
+                        <td style={{ padding: '11px 16px', color: '#1a2e2a', fontWeight: a.kritisch ? 500 : 400, minHeight: '50px', verticalAlign: 'middle' }}>
                           {a.kritisch && <span style={{ color: '#3d675e', marginRight: '6px' }}>★</span>}
                           {a.bezeichnung}
                           {a.auf_merkliste && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', color: '#3d675e', background: '#f0f5f4', padding: '1px 5px', borderRadius: '3px', marginLeft: '6px' }}>Bestellt</span>}
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '50px' }}>
                           {a.spezifikation ? (
                             <span>{a.spezifikation}</span>
                           ) : (
@@ -346,30 +346,30 @@ export default function Artikel() {
                             </>
                           )}
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px' }}>{a.lieferant_name}</td>
-                        <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a' }}>
-                          <div>
+                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>{a.lieferant_name}</td>
+                        <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a', minHeight: '50px', verticalAlign: 'middle' }}>
+                          <div style={{ lineHeight: 1.4 }}>
                             {a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span>
                             {stueckProEinheit(a.einheit) && (
-                              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>
+                              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0', lineHeight: 1.3 }}>
                                 = {Math.round(a.lager_bestand * stueckProEinheit(a.einheit))} Stk
                               </p>
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '11px 16px', color: a.bz_bestand > 0 ? '#1a2e2a' : '#d1e0db' }}>
+                        <td style={{ padding: '11px 16px', color: a.bz_bestand > 0 ? '#1a2e2a' : '#d1e0db', minHeight: '50px', verticalAlign: 'middle' }}>
                           {a.bz_bestand > 0 ? (
-                            <div>
+                            <div style={{ lineHeight: 1.4 }}>
                               {a.bz_bestand} <span style={{ color: '#8aada5', fontSize: '12px' }}>{a.einheit}</span>
                               {stueckProEinheit(a.einheit) && (
-                                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>
+                                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0', lineHeight: 1.3 }}>
                                   = {Math.round(a.bz_bestand * stueckProEinheit(a.einheit))} Stk
                                 </p>
                               )}
                             </div>
                           ) : '—'}
                         </td>
-                        <td style={{ padding: '11px 16px', fontFamily: "'Geist Mono', monospace", fontSize: '13px' }}>
+                        <td style={{ padding: '11px 16px', fontFamily: "'Geist Mono', monospace", fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>
                           {(() => {
                             const { gesamt, stueck } = gesamtInfo(a.lager_bestand, a.bz_bestand, a.einheit)
                             return (
@@ -382,14 +382,14 @@ export default function Artikel() {
                             )
                           })()}
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#8aada5' }}>{a.kein_mindestbestand ? '—' : a.mindestbestand}</td>
-                        <td style={{ padding: '11px 16px', color: '#8aada5', fontSize: '13px' }}>
+                        <td style={{ padding: '11px 16px', color: '#8aada5', minHeight: '50px', verticalAlign: 'middle' }}>{a.kein_mindestbestand ? '—' : a.mindestbestand}</td>
+                        <td style={{ padding: '11px 16px', color: '#8aada5', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>
                           {a.naechstes_verfallsdatum ? new Date(a.naechstes_verfallsdatum).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' }) : '—'}
                         </td>
-                        <td style={{ padding: '11px 16px' }}>
+                        <td style={{ padding: '11px 16px', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
                           <StatusBadge lagerBestand={a.lager_bestand} mindestbestand={a.mindestbestand} verfallsdatum={a.naechstes_verfallsdatum} keinMindestbestand={a.kein_mindestbestand} />
                         </td>
-                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', minHeight: '50px', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                           <button onClick={() => setArtikelForm(a)} title="Bearbeiten"
                             style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1e0db', background: '#fff', color: '#5a8a80', cursor: 'pointer', marginRight: '4px' }}>✎</button>
                           <button onClick={() => setBuchungModal({ artikel: a, modus: 'verbrauch' })} title="Verbrauch buchen"
