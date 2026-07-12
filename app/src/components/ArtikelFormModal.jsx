@@ -120,7 +120,8 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   }
 
   async function ladenChargen() {
-    const { data } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).is('deleted_at', null).order('verfallsdatum', { ascending: true, nullsFirst: false })
+    const { data, error } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).is('deleted_at', null).order('verfallsdatum', { ascending: true, nullsFirst: false })
+    console.log('ladenChargen für artikel', artikel.id, ':', data, error)
     if (data) {
       setChargen(data)
       const inputs = {}
