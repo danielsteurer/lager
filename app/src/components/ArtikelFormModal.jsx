@@ -441,35 +441,48 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
             </div>
 
             {/* Bestand Eingabe */}
-            {!isNeu && (
-              <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Bestand ({artikel.einheit})</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Lager</p>
-                      <input type="number" min="0" step="0.5" value={bestandInput.lager}
-                        onChange={e => setBestandInput(b => ({ ...b, lager: e.target.value }))}
-                        style={inp(false)} />
+            {!isNeu && (() => {
+              const spE = stueckProEinheit(artikel.einheit)
+              const lagerStueck = spE ? Math.round(parseFloat(bestandInput.lager || 0) * spE) : null
+              const bzStueck = spE ? Math.round(parseFloat(bestandInput.bz || 0) * spE) : null
+              return (
+                <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Bestand ({artikel.einheit})</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Lager</p>
+                        <input type="number" min="0" step="0.5" value={bestandInput.lager}
+                          onChange={e => setBestandInput(b => ({ ...b, lager: e.target.value }))}
+                          style={inp(false)} />
+                        {lagerStueck !== null && (
+                          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0' }}>= {lagerStueck} Stück</p>
+                        )}
+                      </div>
+                      <div>
+                        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Behandlungsraum</p>
+                        <input type="number" min="0" step="0.5" value={bestandInput.bz}
+                          onChange={e => setBestandInput(b => ({ ...b, bz: e.target.value }))}
+                          style={inp(false)} />
+                        {bzStueck !== null && (
+                          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0' }}>= {bzStueck} Stück</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Behandlungsraum</p>
-                      <input type="number" min="0" step="0.5" value={bestandInput.bz}
-                        onChange={e => setBestandInput(b => ({ ...b, bz: e.target.value }))}
-                        style={inp(false)} />
-                    </div>
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '8px 0 0' }}>
+                      Gesamt: <strong>{parseFloat(bestandInput.lager || 0) + parseFloat(bestandInput.bz || 0)}</strong>
+                      {spE && <span> = <strong>{Math.round((parseFloat(bestandInput.lager || 0) + parseFloat(bestandInput.bz || 0)) * spE)}</strong> Stück</span>}
+                    </p>
                   </div>
-                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '8px 0 0' }}>
-                    Gesamt: <strong>{parseFloat(bestandInput.lager || 0) + parseFloat(bestandInput.bz || 0)}</strong>
-                  </p>
+                  {bestandAutoSaveStatus && (
+                    <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: bestandAutoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: '0 0 0 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {bestandAutoSaveStatus}
+                    </p>
+                  )}
                 </div>
-                {bestandAutoSaveStatus && (
-                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: bestandAutoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: '0 0 0 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {bestandAutoSaveStatus}
-                  </p>
-                )}
-              </div>
-            )}
+              )
+            })()}
+
 
             {/* Kritisch */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: form.kritisch ? '#f0f5f4' : '#fafafa', borderRadius: '8px', border: `1px solid ${form.kritisch ? '#9ad89e' : '#e2ebe8'}` }}>
