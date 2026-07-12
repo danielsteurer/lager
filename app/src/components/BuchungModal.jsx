@@ -45,7 +45,8 @@ export default function BuchungModal({ artikel, modus: initialModus, onClose, on
   const [modus, setModus] = useState(initialModus)
   const [menge, setMenge] = useState('')
   const [lagerort, setLagerort] = useState('lager')          // für Verbrauch + Wareneingang
-  const [zielort, setZielort] = useState('behandlungsraum')  // für Umbuchung
+  const [umbuchungVon, setUmbuchungVon] = useState('lager')  // Umbuchung Quelle
+  const [umbuchungZu, setUmbuchungZu] = useState('behandlungsraum') // Umbuchung Ziel
   const [chargeNr, setChargeNr] = useState('')
   const [keineCharge, setKeineCharge] = useState(false)
   const [verfall, setVerfall] = useState('')
@@ -72,7 +73,7 @@ export default function BuchungModal({ artikel, modus: initialModus, onClose, on
 
   // Chargen nach gewähltem Lagerort filtern
   const chargenAmOrt = chargen.filter(c =>
-    istWareneingang ? true : c.lagerort === (istUmbuchung ? 'lager' : lagerort)
+    istWareneingang ? true : c.lagerort === (istUmbuchung ? umbuchungVon : lagerort)
   )
 
   // Bestand am gewählten Ort
@@ -114,7 +115,7 @@ export default function BuchungModal({ artikel, modus: initialModus, onClose, on
     onDone()
   }
 
-  // Umbuchung: Lager → Behandlungsraum (älteste Charge zuerst, lagerort wechseln)
+  // Umbuchung: zwischen Lagerorten (älteste Charge zuerst, lagerort wechseln)
   async function umbuchungBuchen(menge) {
     const relevant = chargenAmOrt.sort((a, b) => {
       if (!a.verfallsdatum) return 1
@@ -122,21 +123,21 @@ export default function BuchungModal({ artikel, modus: initialModus, onClose, on
       return new Date(a.verfallsdatum) - new Date(b.verfallsdatum)
     })
     let rest = menge
+    const vonLabel = umbuchungVon === 'lager' ? 'Lager' : 'Behandlungsraum'
+    const zuLabel = umbuchungZu === 'lager' ? 'Lager' : 'Behandlungsraum'
     for (const c of relevant) {
       if (rest <= 0) break
       const abzug = Math.min(c.menge, rest)
       rest -= abzug
       if (c.menge <= abzug) {
-        // Ganze Charge umbuchen: lagerort ändern
-        await supabase.from('chargen').update({ lagerort: zielort }).eq('id', c.id)
+        await supabase.from('chargen').update({ lagerort: umbuchungZu }).eq('id', c.id)
       } else {
-        // Charge aufteilen: Rest bleibt im Lager, abgezogene Menge geht in BZ
         await supabase.from('chargen').update({ menge: c.menge - abzug }).eq('id', c.id)
-        await supabase.from('chargen').insert({ artikel_id: artikel.id, charge_nr: c.charge_nr, menge: abzug, verfallsdatum: c.verfallsdatum, lagerort: zielort })
+        await supabase.from('chargen').insert({ artikel_id: artikel.id, charge_nr: c.charge_nr, menge: abzug, verfallsdatum: c.verfallsdatum, lagerort: umbuchungZu })
       }
-      await supabase.from('bewegungen').insert({ artikel_id: artikel.id, charge_id: c.id, menge: 0, typ: 'umbuchung', notiz: `Lager → Behandlungsraum${notiz ? ': ' + notiz : ''}` })
+      await supabase.from('bewegungen').insert({ artikel_id: artikel.id, charge_id: c.id, menge: 0, typ: 'umbuchung', notiz: `${vonLabel} → ${zuLabel}${notiz ? ': ' + notiz : ''}` })
     }
-    if (rest > 0) { setFehler(`Nicht genug Lagerbestand. ${rest} ${artikel.einheit} zu viel.`); setLoading(false); return }
+    if (rest > 0) { setFehler(`Nicht genug Bestand am ${vonLabel}. ${rest} ${artikel.einheit} zu viel.`); setLoading(false); return }
     onDone()
   }
 
@@ -207,15 +208,26 @@ export default function BuchungModal({ artikel, modus: initialModus, onClose, on
             </div>
           )}
 
-          {/* Umbuchung: Richtung anzeigen */}
+          {/* Umbuchung: Richtung wählen */}
           {istUmbuchung && (
-            <div style={{ background: '#f0f5f4', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', margin: 0 }}>
-                <strong>Lager</strong> ({lagerBestand} {artikel.einheit}) → <strong>Behandlungsraum</strong>
+            <div>
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', margin: '0 0 6px' }}>
+                Richtung
               </p>
-              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '4px 0 0' }}>
-                Älteste Charge zuerst
-              </p>
+              <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                {[
+                  { von: 'lager', zu: 'behandlungsraum', label: 'Lager → Behandlungsraum' },
+                  { von: 'behandlungsraum', zu: 'lager', label: 'Behandlungsraum → Lager' }
+                ].map(r => (
+                  <button key={r.label} onClick={() => { setUmbuchungVon(r.von); setUmbuchungZu(r.zu) }}
+                    style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${umbuchungVon === r.von ? '#3d675e' : '#d1e0db'}`, background: umbuchungVon === r.von ? '#f0f5f4' : '#fff', color: umbuchungVon === r.von ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: umbuchungVon === r.von ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}>
+                    {r.label}
+                    <span style={{ display: 'block', fontSize: '11px', fontFamily: "'Geist Mono', monospace", marginTop: '2px', opacity: 0.7 }}>
+                      Bestand: {chargen.filter(c => c.lagerort === r.von).reduce((s, c) => s + c.menge, 0)} {artikel.einheit}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

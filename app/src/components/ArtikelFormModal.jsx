@@ -51,7 +51,9 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   const [neueKatText, setNeueKatText] = useState('')
   const [neuerLieferant, setNeuerLieferant] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [autoSaveStatus, setAutoSaveStatus] = useState(null) // 'speichert...', '✓ Gespeichert', '❌ Fehler'
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null)
+  const [bestand, setBestand] = useState({ lager: 0, bz: 0 })
+  const [bestandLoading, setBestandLoading] = useState(true)
   const [fehler, setFehler] = useState({})
 
   const parsed = parseEinheit(artikel?.einheit)
@@ -91,7 +93,14 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   useEffect(() => {
     ladenLieferanten()
     ladenKategorien()
+    if (!isNeu) ladenBestand()
   }, [])
+
+  async function ladenBestand() {
+    const { data } = await supabase.from('artikel_bestand').select('lager_bestand, bz_bestand').eq('id', artikel.id).single()
+    if (data) setBestand({ lager: data.lager_bestand, bz: data.bz_bestand })
+    setBestandLoading(false)
+  }
 
   // Auto-Save mit Debounce
   useEffect(() => {
