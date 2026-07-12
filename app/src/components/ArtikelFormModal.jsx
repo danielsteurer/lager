@@ -120,7 +120,7 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   }
 
   async function ladenChargen() {
-    const { data } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).eq('deleted_at', null).order('verfallsdatum', { ascending: true, nullsFirst: false })
+    const { data } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).is('deleted_at', null).order('verfallsdatum', { ascending: true, nullsFirst: false })
     if (data) {
       setChargen(data)
       const inputs = {}
@@ -238,7 +238,7 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
     if (!neuesVerfall || isNeu) return
     setChargenAutoSaveStatus('speichert...')
     try {
-      await supabase.from('chargen').update({ verfallsdatum: neuesVerfall }).eq('artikel_id', artikel.id).eq('deleted_at', null)
+      await supabase.from('chargen').update({ verfallsdatum: neuesVerfall }).eq('artikel_id', artikel.id).is('deleted_at', null)
       const inputs = {}
       chargen.forEach(c => {
         inputs[c.id] = neuesVerfall
