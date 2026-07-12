@@ -304,8 +304,8 @@ export default function Artikel() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
                       <th style={{ padding: '8px 16px', width: '36px' }} />
-                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Status', ''].map(h => (
-                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{h}</th>
+                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Status', ''].map((h, idx) => (
+                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 1 ? '140px' : idx === 3 ? '120px' : idx === 4 ? '100px' : 'auto' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -347,24 +347,24 @@ export default function Artikel() {
                           )}
                         </td>
                         <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>{a.lieferant_name}</td>
-                        <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a', minHeight: '50px', verticalAlign: 'middle' }}>
-                          <div style={{ lineHeight: 1.4 }}>
-                            {a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span>
+                        <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a', minHeight: '50px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span></span>
                             {stueckProEinheit(a.einheit) && (
-                              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0', lineHeight: 1.3 }}>
+                              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>
                                 = {Math.round(a.lager_bestand * stueckProEinheit(a.einheit))} Stk
-                              </p>
+                              </span>
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '11px 16px', color: a.bz_bestand > 0 ? '#1a2e2a' : '#d1e0db', minHeight: '50px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '11px 16px', color: a.bz_bestand > 0 ? '#1a2e2a' : '#d1e0db', minHeight: '50px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           {a.bz_bestand > 0 ? (
-                            <div style={{ lineHeight: 1.4 }}>
-                              {a.bz_bestand} <span style={{ color: '#8aada5', fontSize: '12px' }}>{a.einheit}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{a.bz_bestand} <span style={{ color: '#8aada5', fontSize: '12px' }}>{a.einheit}</span></span>
                               {stueckProEinheit(a.einheit) && (
-                                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0', lineHeight: 1.3 }}>
+                                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>
                                   = {Math.round(a.bz_bestand * stueckProEinheit(a.einheit))} Stk
-                                </p>
+                                </span>
                               )}
                             </div>
                           ) : '—'}
