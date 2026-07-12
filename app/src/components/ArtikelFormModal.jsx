@@ -61,6 +61,10 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   const [bestandInput, setBestandInput] = useState({ lager: '', bz: '' })
   const [bestandLoading, setBestandLoading] = useState(true)
   const [bestandAutoSaveStatus, setBestandAutoSaveStatus] = useState(null)
+  const [chargen, setChargen] = useState([])
+  const [chargenInput, setChargenInput] = useState({})
+  const [chargenAutoSaveStatus, setChargenAutoSaveStatus] = useState(null)
+  const [alleChargenDatum, setAlleChargenDatum] = useState('')
   const [fehler, setFehler] = useState({})
 
   const parsed = parseEinheit(artikel?.einheit)
@@ -100,7 +104,10 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   useEffect(() => {
     ladenLieferanten()
     ladenKategorien()
-    if (!isNeu) ladenBestand()
+    if (!isNeu) {
+      ladenBestand()
+      ladenChargen()
+    }
   }, [])
 
   async function ladenBestand() {
@@ -110,6 +117,18 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
       setBestandInput({ lager: String(data.lager_bestand), bz: String(data.bz_bestand) })
     }
     setBestandLoading(false)
+  }
+
+  async function ladenChargen() {
+    const { data } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).is('deleted_at', null).order('verfallsdatum', { ascending: true, nullsFirst: false })
+    if (data) {
+      setChargen(data)
+      const inputs = {}
+      data.forEach(c => {
+        inputs[c.id] = c.verfallsdatum || ''
+      })
+      setChargenInput(inputs)
+    }
   }
 
   // Auto-Save für Bestandsänderungen
@@ -184,6 +203,53 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
     } catch (err) {
       setBestandAutoSaveStatus('❌ Fehler')
       setTimeout(() => setBestandAutoSaveStatus(null), 3000)
+    }
+  }
+
+  // Auto-Save für Chargen-Verfallsdaten
+  useEffect(() => {
+    if (isNeu || chargen.length === 0) return
+    const timer = setTimeout(() => {
+      chargenAutoSave()
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [chargenInput])
+
+  async function chargenAutoSave() {
+    if (isNeu || chargen.length === 0) return
+    setChargenAutoSaveStatus('speichert...')
+    try {
+      for (const c of chargen) {
+        const neuVerfall = chargenInput[c.id] || null
+        if (neuVerfall !== (c.verfallsdatum || '')) {
+          await supabase.from('chargen').update({ verfallsdatum: neuVerfall || null }).eq('id', c.id)
+        }
+      }
+      setChargenAutoSaveStatus('✓ Gespeichert')
+      setTimeout(() => setChargenAutoSaveStatus(null), 2000)
+      ladenChargen()
+    } catch (err) {
+      setChargenAutoSaveStatus('❌ Fehler')
+      setTimeout(() => setChargenAutoSaveStatus(null), 3000)
+    }
+  }
+
+  async function alleChargenAktualisieren(neuesVerfall) {
+    if (!neuesVerfall || isNeu) return
+    setChargenAutoSaveStatus('speichert...')
+    try {
+      await supabase.from('chargen').update({ verfallsdatum: neuesVerfall }).eq('artikel_id', artikel.id).is('deleted_at', null)
+      const inputs = {}
+      chargen.forEach(c => {
+        inputs[c.id] = neuesVerfall
+      })
+      setChargenInput(inputs)
+      setChargenAutoSaveStatus('✓ Alle aktualisiert')
+      setTimeout(() => setChargenAutoSaveStatus(null), 2000)
+      ladenChargen()
+    } catch (err) {
+      setChargenAutoSaveStatus('❌ Fehler')
+      setTimeout(() => setChargenAutoSaveStatus(null), 3000)
     }
   }
 
@@ -488,6 +554,46 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
               )
             })()}
 
+            {/* Chargen */}
+            {!isNeu && chargen.length > 0 && (
+              <div style={{ background: '#fafafa', borderRadius: '10px', padding: '14px', border: '1px solid #e2ebe8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Chargen ({chargen.length})</p>
+                  {chargenAutoSaveStatus && (
+                    <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: chargenAutoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: 0, fontWeight: 500 }}>
+                      {chargenAutoSaveStatus}
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <input type="date" value={alleChargenDatum} onChange={e => setAlleChargenDatum(e.target.value)}
+                    style={{ ...inp(false), flex: 1 }} />
+                  <button type="button" onClick={() => alleChargenAktualisieren(alleChargenDatum)}
+                    disabled={!alleChargenDatum}
+                    style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: alleChargenDatum ? '#3d675e' : '#d1e0db', color: '#fff', cursor: alleChargenDatum ? 'pointer' : 'not-allowed', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    Alle aktualisieren
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {chargen.map(c => {
+                    const locOrt = c.lagerort === 'lager' ? 'Lager' : 'Behandlungsraum'
+                    return (
+                      <div key={c.id} style={{ background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2ebe8', display: 'grid', gridTemplateColumns: '80px 1fr 120px', gap: '8px', alignItems: 'center' }}>
+                        <div>
+                          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: 0 }}>Menge</p>
+                          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', margin: 0, fontWeight: 500 }}>{c.menge}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: 0 }}>Charge {c.charge_nr ? `(${c.charge_nr})` : '—'} • {locOrt}</p>
+                        </div>
+                        <input type="date" value={chargenInput[c.id] || ''} onChange={e => setChargenInput(inp => ({ ...inp, [c.id]: e.target.value }))}
+                          style={inp(false)} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Kritisch */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: form.kritisch ? '#f0f5f4' : '#fafafa', borderRadius: '8px', border: `1px solid ${form.kritisch ? '#9ad89e' : '#e2ebe8'}` }}>
