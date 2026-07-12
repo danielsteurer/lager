@@ -1,0 +1,897 @@
+{
+  "lieferanten": [
+    {
+      "_id": "doccheck",
+      "name": "DocCheck Shop GmbH",
+      "email": "info@doccheckshop.at",
+      "telefon": "0800 700 272",
+      "bestellweg": "online",
+      "webshop_url": "https://www.doccheckshop.at",
+      "kundennummer": "4076909",
+      "lieferzeit": "2–4 Werktage",
+      "notiz": null
+    },
+    {
+      "_id": "scherer",
+      "name": "Ärztebedarf Scherer GmbH",
+      "email": "office@scherer.at",
+      "telefon": "+43 5578 74750",
+      "bestellweg": "email",
+      "webshop_url": "https://www.scherer.at",
+      "kundennummer": "214447",
+      "lieferzeit": "1–2 Werktage",
+      "notiz": "Ansprechpartner: Michael Pressnig | Fax: +43 5578 74750-78 | Frei Haus ab EUR 200,00 Netto"
+    },
+    {
+      "_id": "apotheke",
+      "name": "Hofsteig-Apotheke",
+      "email": "office@hofsteig-apotheke.at",
+      "telefon": "+43 5574 74344",
+      "bestellweg": "email",
+      "webshop_url": null,
+      "kundennummer": "205346",
+      "lieferzeit": "1 Werktag",
+      "notiz": "Mag.pharm. Boor KG · Bützestraße 9, 6922 Wolfurt | Rabatt: 10% auf alle Artikel"
+    }
+  ],
+
+  "artikel": [
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Dr. No Venenstauer, grün",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "102362.4",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 2.15,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Nitril 3000 Handschuhe Gr. S",
+      "kategorie": "Handschuhe",
+      "lieferant_artikelnr": "114891",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 5.39,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "50030300225", "menge": 3, "verfallsdatum": "2030-01-30" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Nitril 3000 Handschuhe Gr. M",
+      "kategorie": "Handschuhe",
+      "lieferant_artikelnr": "115634",
+      "einheit": "P/100",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 5.39,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "50012543", "menge": 8, "verfallsdatum": "2030-05-31" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Nitril 3000 Handschuhe Gr. L",
+      "kategorie": "Handschuhe",
+      "lieferant_artikelnr": "115635",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 5.39,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "50008484", "menge": 3, "verfallsdatum": "2030-03-31" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Vasco OP Sensitive Latexhandschuhe Gr. 7,5",
+      "kategorie": "Handschuhe",
+      "lieferant_artikelnr": "125148",
+      "einheit": "P/40 Paar",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 43.14,
+      "notiz": "Puderfreie Latexhandschuhe, steril",
+      "chargen": [
+        { "charge_nr": "25M1300", "menge": 2, "verfallsdatum": "2028-12-31" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Venofix Safety G19 creme 1,10×19mm",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "102598.4",
+      "einheit": "P/50",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 35.94,
+      "notiz": "30 cm Schlauchlänge",
+      "chargen": [
+        { "charge_nr": "23A17", "menge": 1, "verfallsdatum": "2027-12-31" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Sterican Einmalkanülen Neuraltherapie G23 0,60×80mm",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "115202",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 14.34,
+      "notiz": "Spezial-Facetten-Langschliff, blau",
+      "chargen": [
+        { "charge_nr": "25F11G8852", "menge": 1, "verfallsdatum": "2030-06-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Omnifix Solo 3ml Einmalspritze Luer-Lock",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "160361",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 23.94,
+      "notiz": "3-teilig",
+      "chargen": [
+        { "charge_nr": "25L20C8", "menge": 1, "verfallsdatum": "2030-10-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Omnifix Solo 5ml Einmalspritze Luer-Lock",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "111041",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 23.34,
+      "notiz": "3-teilig",
+      "chargen": [
+        { "charge_nr": "25C24C8", "menge": 1, "verfallsdatum": "2030-03-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Omnifix Solo 10ml Einmalspritze Luer-Lock",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "115239",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 29.34,
+      "notiz": "3-teilig",
+      "chargen": [
+        { "charge_nr": "26A19C8", "menge": 1, "verfallsdatum": "2031-01-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Spritze 20ml Luer-Lock zentrisch",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "121366",
+      "einheit": "P/50",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 25.74,
+      "notiz": "3-teilig",
+      "chargen": [
+        { "charge_nr": "250526B", "menge": 1, "verfallsdatum": "2030-04-30" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "DART intranasaler Zerstäuber mit 3ml Spritze",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "102982.0",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 6.59,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "250312", "menge": 1, "verfallsdatum": "2028-03-12" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Peha-haft latexfrei Fixierbinde 8cm×21m",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "102699.0",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 14.34,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "500649174", "menge": 3, "verfallsdatum": "2028-12-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Gazofix color Fixierbinde 6cm×20m grün",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "175291",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 19.14,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "344136",  "menge": 1, "verfallsdatum": "2026-11-09" },
+        { "charge_nr": "536223",  "menge": 2, "verfallsdatum": "2028-09-25" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Gazofix color Fixierbinde 8cm×20m grün",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "175292",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 21.54,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "529826", "menge": 3, "verfallsdatum": "2028-08-27" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Hansaplast Fixierpflaster Sensitive 5m×2,5cm",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "103417.1",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.95,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "50819282", "menge": 2, "verfallsdatum": "2028-01-30" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Schnell-Desinfektionstücher alkoholfrei Spenderdose",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": "115578",
+      "einheit": "P/100",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 9.54,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "285017", "menge": 4, "verfallsdatum": "2027-06-30" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Schnell-Desinfektionstücher alkoholfrei Nachfüllpackung",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": "115579",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 8.34,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "309643", "menge": 2, "verfallsdatum": "2029-02-28" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Bode X-Wipes Spendereimer leer (Deckel grün)",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": "156582",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 14.34,
+      "notiz": "Verbrauchsmaterial-Behälter",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Bode X-Wipes Vliesrolle 90 Tücher",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": "156579",
+      "einheit": "P/90",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 11.94,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Pur-Zellin Spenderbox für Tupfer",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "175494",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 26.34,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Pur-Zellin Zellstofftupfer keimreduziert 4×5cm",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "102869.0",
+      "einheit": "Rolle/500 Stk",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.59,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": "593802005", "menge": 2, "verfallsdatum": "2030-11-01" }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Entsorgungsbehälter Multi-Safe twin plus 3000ml",
+      "kategorie": "Sonstiges",
+      "lieferant_artikelnr": "102310.0",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.47,
+      "notiz": "Sharps-Container",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "doccheck",
+      "bezeichnung": "Einmalhandtücher grün 25×23cm Recycling V-Falz",
+      "kategorie": "Sonstiges",
+      "lieferant_artikelnr": "113526",
+      "einheit": "P/5000",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 35.94,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "OP-Mundschutz blau 3-lagig Gummiband",
+      "kategorie": "Sonstiges",
+      "lieferant_artikelnr": "15000429",
+      "einheit": "Stück",
+      "mindestbestand": 50,
+      "kritisch": false,
+      "letzter_preis": 0.17,
+      "notiz": "PKG = 50 Stk",
+      "chargen": [
+        { "charge_nr": null, "menge": 200, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Discardit II Spritze Luer zentrisch 2ml",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "300928",
+      "einheit": "Stück",
+      "mindestbestand": 50,
+      "kritisch": false,
+      "letzter_preis": 0.05,
+      "notiz": "PKG = 100 Stk",
+      "chargen": [
+        { "charge_nr": null, "menge": 100, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Discardit II Spritze Luer exzentr. 5ml",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "309050",
+      "einheit": "Stück",
+      "mindestbestand": 50,
+      "kritisch": false,
+      "letzter_preis": 0.06,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 200, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Discardit II Spritze Luer exzentr. 10ml",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "309110",
+      "einheit": "Stück",
+      "mindestbestand": 50,
+      "kritisch": false,
+      "letzter_preis": 0.08,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 200, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Discardit II Spritze Luer exzentr. 20ml",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "300296",
+      "einheit": "Stück",
+      "mindestbestand": 50,
+      "kritisch": false,
+      "letzter_preis": 0.12,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 240, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "B.Braun Sterican Insulinkanüle 30G 0,30×12mm gelb",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "4656300",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 4.95,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "B.Braun Sterican Kanüle 27G 0,40×40mm grau",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "9186182",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 7.15,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Neopoint Sonderkanüle Tuberkulin lang 25G 0,50×40mm orange",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "L1 0302",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 5.05,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Neopoint Einmalkanüle 23G 0,60×30mm blau",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "L1 0214",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.50,
+      "notiz": "Nr. 14",
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "B.Braun Sterican Kanüle 23G 0,60×60mm blau",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "4665600",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 7.21,
+      "notiz": "23G × 2 3/8",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Microlance Normkanüle 21G 0,80×40mm grün",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "304432",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.95,
+      "notiz": "Nr. 02",
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Neopoint Einmalkanüle 20G 0,90×40mm gelb",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "L1 0201",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 3.25,
+      "notiz": "Nr. 1",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "B.Braun Sterican Einmalkanüle 21G 0,80×80mm grün",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "4665465",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 12.75,
+      "notiz": "21G × 3 1/8",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "BD Blunt Fill Safety Aufziehkanüle 18G 1,2×40mm rot",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "303129",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 16.95,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Leukoplast Soft White Injektionspflaster 1,9×4cm",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "7645026",
+      "einheit": "P/500",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 29.17,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Leukoplast Soft White 6cm×5m",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "7645001",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 22.29,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 3, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Gazin Mullkompressen 12-fach 5×5cm unsteril",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "18501",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 6.96,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Gazin Mullkompressen 12-fach 7,5×7,5cm unsteril",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "18504",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 11.50,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Gazin Kompressen steril 7,5×7,5cm",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "L2 34260",
+      "einheit": "P/25×2",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 8.60,
+      "notiz": "Mittel, steril",
+      "chargen": [
+        { "charge_nr": null, "menge": 8, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Gazin Mullkompressen 8-fach 5×5cm steril",
+      "kategorie": "Verbandsmaterial",
+      "lieferant_artikelnr": "13620",
+      "einheit": "P/50×2",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 14.50,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Vacutainer Safety-Lok Blutentnahme-Set 21G",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "367286",
+      "einheit": "P/50",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 28.98,
+      "notiz": "30cm, steril, grün, Luer",
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Aquasonic Ultraschallgel 5L Cubitainer",
+      "kategorie": "Ultraschall / EKG",
+      "lieferant_artikelnr": "01-50",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 25.10,
+      "notiz": "Blau",
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Aquasonic Ultraschallgel 250ml",
+      "kategorie": "Ultraschall / EKG",
+      "lieferant_artikelnr": "01-08",
+      "einheit": "Flasche",
+      "mindestbestand": 3,
+      "kritisch": false,
+      "letzter_preis": 3.70,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 12, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Signa Kontakt-Spray für Elektroden 250ml",
+      "kategorie": "Ultraschall / EKG",
+      "lieferant_artikelnr": "18-25",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 4.80,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 3, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Fibral Tips grau 4,0mm",
+      "kategorie": "Ultraschall / EKG",
+      "lieferant_artikelnr": "01.71222.002",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 0,
+      "notiz": "Naturalrabatt bei Bestellung",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "scherer",
+      "bezeichnung": "Fibral Tips grau 2,5mm",
+      "kategorie": "Ultraschall / EKG",
+      "lieferant_artikelnr": "01.71212.002",
+      "einheit": "P/100",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 0,
+      "notiz": "Naturalrabatt bei Bestellung",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Ostenil Plus 40mg/2ml",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": "H7 50991",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": true,
+      "letzter_preis": 71.73,
+      "notiz": "Hyaluronsäure-Injektion | 10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Glukose 20% Miniplus 20×10ml",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": "I3 309050",
+      "einheit": "Stück",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 10.55,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 2, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "WEPA Inhal NaCl Lösung 5ml",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/20",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 7.50,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 7, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Xyloneural Amp 5ml",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/50",
+      "mindestbestand": 1,
+      "kritisch": true,
+      "letzter_preis": 40.13,
+      "notiz": "Lokalanästhetikum | 10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Elo-Mel Isoton Infusionslösung 500ml",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/10",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 50.97,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Traumeel Amp",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/10",
+      "mindestbestand": 1,
+      "kritisch": false,
+      "letzter_preis": 27.82,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 1, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Volon A 10mg/1ml Amp",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/5",
+      "mindestbestand": 2,
+      "kritisch": true,
+      "letzter_preis": 11.25,
+      "notiz": "Kortikosteroid | 10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Volon A 40mg/1ml Amp",
+      "kategorie": "Medikamente",
+      "lieferant_artikelnr": null,
+      "einheit": "P/5",
+      "mindestbestand": 2,
+      "kritisch": true,
+      "letzter_preis": 29.41,
+      "notiz": "Kortikosteroid | 10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Infbest MPO Luer Lock",
+      "kategorie": "Kanülen / Spritzen",
+      "lieferant_artikelnr": "9045",
+      "einheit": "Stück",
+      "mindestbestand": 2,
+      "kritisch": false,
+      "letzter_preis": 0.79,
+      "notiz": null,
+      "chargen": [
+        { "charge_nr": null, "menge": 4, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Octenisept Lösung 500ml",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": null,
+      "einheit": "Flasche",
+      "mindestbestand": 5,
+      "kritisch": false,
+      "letzter_preis": 14.27,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 30, "verfallsdatum": null }
+      ]
+    },
+    {
+      "_lieferant": "apotheke",
+      "bezeichnung": "Octenisept Lösung 1000ml",
+      "kategorie": "Desinfektion",
+      "lieferant_artikelnr": null,
+      "einheit": "Flasche",
+      "mindestbestand": 3,
+      "kritisch": false,
+      "letzter_preis": 26.30,
+      "notiz": "10% Rabatt",
+      "chargen": [
+        { "charge_nr": null, "menge": 20, "verfallsdatum": null }
+      ]
+    }
+  ]
+}
