@@ -360,6 +360,36 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
               </div>
             </div>
 
+            {/* Bestand anzeigen + Quick Wareneingang */}
+            {!isNeu && (
+              <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db' }}>
+                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>Bestand</p>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  {[['Lager', bestand.lager], ['Behandlungsraum', bestand.bz]].map(([name, val]) => (
+                    <div key={name}>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 2px' }}>{name}</p>
+                      <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '14px', fontWeight: 600, color: '#1a2e2a', margin: 0 }}>{val} {artikel.einheit}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input type="number" min="0.01" step="0.5" placeholder="Menge" id="quickWare"
+                    style={{ ...inp(false), flex: 1, fontSize: '13px' }} />
+                  <button onClick={async () => {
+                    const menge = parseFloat(document.getElementById('quickWare').value)
+                    if (!menge) return
+                    await supabase.from('chargen').insert({ artikel_id: artikel.id, menge, lagerort: 'lager', charge_nr: null, verfallsdatum: null })
+                    await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge, typ: 'wareneingang', notiz: 'Quick hinzufügen' })
+                    document.getElementById('quickWare').value = ''
+                    setBestand(b => ({ ...b, lager: b.lager + menge }))
+                  }}
+                    style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', padding: '8px 14px', borderRadius: '7px', border: 'none', background: '#9ad89e', color: '#1a2e2a', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    + Lager
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Kritisch */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: form.kritisch ? '#f0f5f4' : '#fafafa', borderRadius: '8px', border: `1px solid ${form.kritisch ? '#9ad89e' : '#e2ebe8'}` }}>
               <input type="checkbox" checked={form.kritisch} onChange={e => set('kritisch', e.target.checked)}
