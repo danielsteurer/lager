@@ -133,6 +133,20 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
       if (diffLager !== 0) {
         if (diffLager > 0) {
           await supabase.from('chargen').insert({ artikel_id: artikel.id, menge: diffLager, lagerort: 'lager', charge_nr: null, verfallsdatum: null })
+        } else {
+          // Verbrauch: älteste Chargen zuerst (FEFO)
+          const { data: chargen } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).eq('lagerort', 'lager').order('verfallsdatum', { ascending: true, nullsFirst: false })
+          let abzuBuchendeLagerMenge = Math.abs(diffLager)
+          for (const c of chargen || []) {
+            if (abzuBuchendeLagerMenge <= 0) break
+            const abzug = Math.min(c.menge, abzuBuchendeLagerMenge)
+            abzuBuchendeLagerMenge -= abzug
+            if (c.menge <= abzug) {
+              await supabase.from('chargen').delete().eq('id', c.id)
+            } else {
+              await supabase.from('chargen').update({ menge: c.menge - abzug }).eq('id', c.id)
+            }
+          }
         }
         await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge: diffLager, typ: diffLager > 0 ? 'wareneingang' : 'verbrauch', notiz: 'Bestandskorrektur' })
       }
@@ -141,6 +155,20 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
       if (diffBz !== 0) {
         if (diffBz > 0) {
           await supabase.from('chargen').insert({ artikel_id: artikel.id, menge: diffBz, lagerort: 'behandlungsraum', charge_nr: null, verfallsdatum: null })
+        } else {
+          // Verbrauch: älteste Chargen zuerst
+          const { data: chargen } = await supabase.from('chargen').select('*').eq('artikel_id', artikel.id).eq('lagerort', 'behandlungsraum').order('verfallsdatum', { ascending: true, nullsFirst: false })
+          let abzuBuchendeBzMenge = Math.abs(diffBz)
+          for (const c of chargen || []) {
+            if (abzuBuchendeBzMenge <= 0) break
+            const abzug = Math.min(c.menge, abzuBuchendeBzMenge)
+            abzuBuchendeBzMenge -= abzug
+            if (c.menge <= abzug) {
+              await supabase.from('chargen').delete().eq('id', c.id)
+            } else {
+              await supabase.from('chargen').update({ menge: c.menge - abzug }).eq('id', c.id)
+            }
+          }
         }
         await supabase.from('bewegungen').insert({ artikel_id: artikel.id, menge: diffBz, typ: diffBz > 0 ? 'wareneingang' : 'verbrauch', notiz: 'Bestandskorrektur BZ' })
       }
