@@ -12,6 +12,11 @@ function daysUntil(dateStr) {
   return Math.ceil((new Date(dateStr) - new Date()) / 86400000)
 }
 
+function stueckProEinheit(einheit) {
+  const m = einheit?.match(/^P\/(\d+)/)
+  return m ? parseInt(m[1]) : null
+}
+
 function sortArtikelInKategorie(liste, farbMap) {
   // Wenn mindestens ein Artikel sortierung > 0 hat, dann nach sortierung sortieren
   const hasSortierung = liste.some(a => (a.sortierung ?? 0) > 0)
@@ -343,10 +348,26 @@ export default function Artikel() {
                         </td>
                         <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px' }}>{a.lieferant_name}</td>
                         <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a' }}>
-                          {a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span>
+                          <div>
+                            {a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span>
+                            {stueckProEinheit(a.einheit) && (
+                              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>
+                                = {Math.round(a.lager_bestand * stueckProEinheit(a.einheit))} Stk
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '11px 16px', color: a.bz_bestand > 0 ? '#1a2e2a' : '#d1e0db' }}>
-                          {a.bz_bestand > 0 ? <>{a.bz_bestand} <span style={{ color: '#8aada5', fontSize: '12px' }}>{a.einheit}</span></> : '—'}
+                          {a.bz_bestand > 0 ? (
+                            <div>
+                              {a.bz_bestand} <span style={{ color: '#8aada5', fontSize: '12px' }}>{a.einheit}</span>
+                              {stueckProEinheit(a.einheit) && (
+                                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>
+                                  = {Math.round(a.bz_bestand * stueckProEinheit(a.einheit))} Stk
+                                </p>
+                              )}
+                            </div>
+                          ) : '—'}
                         </td>
                         <td style={{ padding: '11px 16px', fontFamily: "'Geist Mono', monospace", fontSize: '13px' }}>
                           {(() => {
