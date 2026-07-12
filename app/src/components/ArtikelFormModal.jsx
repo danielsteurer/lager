@@ -51,6 +51,7 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   const [neueKatText, setNeueKatText] = useState('')
   const [neuerLieferant, setNeuerLieferant] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null) // 'speichert...', '✓ Gespeichert', '❌ Fehler'
   const [fehler, setFehler] = useState({})
 
   const parsed = parseEinheit(artikel?.einheit)
@@ -91,6 +92,56 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
     ladenLieferanten()
     ladenKategorien()
   }, [])
+
+  // Auto-Save mit Debounce
+  useEffect(() => {
+    if (isNeu) return // Nur für bestehende Artikel
+
+    const timer = setTimeout(() => {
+      autoSave()
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [form, einheitTyp, einheitAnzahl])
+
+  async function autoSave() {
+    if (isNeu || !artikel?.id) return
+
+    setAutoSaveStatus('speichert...')
+
+    const einheit = buildEinheit(einheitTyp, einheitAnzahl)
+    const data = {
+      bezeichnung: form.bezeichnung.trim() || 'Unbenannt',
+      kategorie: form.kategorie || null,
+      lieferant_id: form.lieferant_id || null,
+      lieferant_artikelnr: form.lieferant_artikelnr.trim() || null,
+      einheit,
+      mindestbestand: form.kein_mindestbestand ? 0 : parseFloat(form.mindestbestand) || 0,
+      kein_mindestbestand: form.kein_mindestbestand,
+      gauge: form.gauge ? parseInt(form.gauge) : null,
+      länge: form.länge ? parseInt(form.länge) : null,
+      syringe_ml: form.syringe_ml ? parseInt(form.syringe_ml) : null,
+      luer_lock: form.luer_lock,
+      spezifikation: form.spezifikation.trim() || null,
+      kritisch: form.kritisch,
+      letzter_preis: form.letzter_preis !== '' ? parseFloat(form.letzter_preis) : null,
+      notiz: form.notiz.trim() || null,
+    }
+
+    try {
+      const result = await supabase.from('artikel').update(data).eq('id', artikel.id)
+      if (result.error) {
+        setAutoSaveStatus('❌ Fehler beim Speichern')
+        setTimeout(() => setAutoSaveStatus(null), 3000)
+      } else {
+        setAutoSaveStatus('✓ Gespeichert')
+        setTimeout(() => setAutoSaveStatus(null), 2000)
+      }
+    } catch (err) {
+      setAutoSaveStatus('❌ Fehler')
+      setTimeout(() => setAutoSaveStatus(null), 3000)
+    }
+  }
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); setFehler(e => ({ ...e, [k]: null })) }
 
@@ -157,17 +208,26 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
       <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '560px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
 
         <div style={{ padding: '24px 28px 0' }}>
-          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
-            {isNeu ? 'Neuer Artikel' : 'Artikel bearbeiten'}
-          </p>
-          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: '0 0 6px' }}>
-            {isNeu ? 'Artikel anlegen' : form.bezeichnung}
-          </h2>
-          {!isNeu && artikel?.bezeichnung_original && (
-            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', color: '#8aada5', margin: '0 0 16px' }}>
-              {artikel.bezeichnung_original}
-            </p>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
+                {isNeu ? 'Neuer Artikel' : 'Artikel bearbeiten'}
+              </p>
+              <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: '0 0 6px' }}>
+                {isNeu ? 'Artikel anlegen' : form.bezeichnung}
+              </h2>
+              {!isNeu && artikel?.bezeichnung_original && (
+                <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', color: '#8aada5', margin: '0 0 16px' }}>
+                  {artikel.bezeichnung_original}
+                </p>
+              )}
+            </div>
+            {autoSaveStatus && !isNeu && (
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: autoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: '4px 0 0', fontWeight: 500 }}>
+                {autoSaveStatus}
+              </p>
+            )}
+          </div>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1 }}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useUndo } from '../lib/UndoContext'
 import { defaultEmailVorlage } from '../lib/emailVorlage'
@@ -16,6 +16,7 @@ export default function LieferantFormModal({ lieferant, onClose, onDone }) {
   const isNeu = !lieferant
   const { push } = useUndo()
   const [saving, setSaving] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null)
   const [fehler, setFehler] = useState({})
 
   const [form, setForm] = useState({
@@ -30,6 +31,41 @@ export default function LieferantFormModal({ lieferant, onClose, onDone }) {
   })
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); setFehler(e => ({ ...e, [k]: null })) }
+
+  useEffect(() => {
+    if (isNeu) return
+    const timer = setTimeout(() => { autoSave() }, 1000)
+    return () => clearTimeout(timer)
+  }, [form])
+
+  async function autoSave() {
+    if (isNeu || !lieferant?.id) return
+    setAutoSaveStatus('speichert...')
+
+    const data = {
+      name: form.name.trim() || 'Unbenannt',
+      email: form.email.trim() || null,
+      telefon: form.telefon.trim() || null,
+      bestellweg: form.bestellweg,
+      webshop_url: form.webshop_url.trim() || null,
+      kundennummer: form.kundennummer.trim() || null,
+      lieferzeit: form.lieferzeit.trim() || null,
+      notiz: form.notiz.trim() || null,
+    }
+
+    try {
+      await supabase.from('lieferanten').update(data).eq('id', lieferant.id)
+      setAutoSaveStatus('✓ Gespeichert')
+      setTimeout(() => setAutoSaveStatus(null), 2000)
+    } catch (err) {
+      setAutoSaveStatus('❌ Fehler')
+      setTimeout(() => setAutoSaveStatus(null), 3000)
+    }
+  }
+
+  useEffect(() => {
+    ladenLieferanten()
+  }, [])
 
   async function speichern() {
     const err = {}
@@ -66,12 +102,21 @@ export default function LieferantFormModal({ lieferant, onClose, onDone }) {
       <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
 
         <div style={{ padding: '24px 28px 0' }}>
-          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
-            {isNeu ? 'Neuer Lieferant' : 'Lieferant bearbeiten'}
-          </p>
-          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: '0 0 20px' }}>
-            {isNeu ? 'Lieferant anlegen' : form.name}
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
+                {isNeu ? 'Neuer Lieferant' : 'Lieferant bearbeiten'}
+              </p>
+              <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: '0 0 20px' }}>
+                {isNeu ? 'Lieferant anlegen' : form.name}
+              </h2>
+            </div>
+            {autoSaveStatus && !isNeu && (
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: autoSaveStatus.startsWith('✓') ? '#166534' : '#991b1b', margin: '4px 0 0', fontWeight: 500 }}>
+                {autoSaveStatus}
+              </p>
+            )}
+          </div>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1 }}>
