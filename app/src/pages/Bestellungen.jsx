@@ -56,15 +56,46 @@ export default function Bestellungen() {
     ladenDaten()
   }, [])
 
+  const BEST_SELECT = '*, bestellpositionen(*, artikel(bezeichnung, lieferant_artikelnr)), lieferanten(name)'
+
   async function ladenDaten() {
     try {
       const [best, art, lief] = await Promise.all([
-        supabase.from('bestellungen').select('*, bestellpositionen(*, artikel(bezeichnung, lieferant_artikelnr)), lieferanten(name)').order('created_at', { ascending: false }),
+        supabase.from('bestellungen').select(BEST_SELECT).order('created_at', { ascending: false }),
         supabase.from('artikel_bestand').select('*'),
         supabase.from('lieferanten').select('*'),
       ])
 
-      setBestellungen(best.data ?? [])
+      // Artikel unter Mindestbestand automatisch als offene Bestellung anlegen,
+      // sofern sie nicht bereits offen/bestellt sind.
+      const bereitsInBestellung = new Set()
+      ;(best.data ?? []).filter(b => b.status !== 'geliefert').forEach(b => {
+        (b.bestellpositionen || []).forEach(p => { if (p.artikel_id) bereitsInBestellung.add(p.artikel_id) })
+      })
+      const fehlend = (art.data ?? []).filter(a =>
+        !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand && !bereitsInBestellung.has(a.id)
+      )
+
+      if (fehlend.length > 0) {
+        for (const a of fehlend) {
+          const b = await supabase.from('bestellungen').insert({ lieferant_id: a.lieferant_id, status: 'offen' }).select('id').single()
+          if (b.data) {
+            await supabase.from('bestellpositionen').insert({
+              bestellung_id: b.data.id,
+              artikel_id: a.id,
+              menge: Math.max(1, (a.mindestbestand * 2) - a.lager_bestand),
+              einheit: a.einheit,
+              preis_pro_einheit: a.letzter_preis,
+            })
+          }
+        }
+        // Nach dem Anlegen einmal neu laden
+        const best2 = await supabase.from('bestellungen').select(BEST_SELECT).order('created_at', { ascending: false })
+        setBestellungen(best2.data ?? [])
+      } else {
+        setBestellungen(best.data ?? [])
+      }
+
       setArtikel(art.data ?? [])
       setLieferanten(lief.data ?? [])
       setLoading(false)
@@ -75,7 +106,12 @@ export default function Bestellungen() {
   }
 
   const bestellungenNachStatus = bestellungen.filter(b => b.status === tab)
-  const mindestbestandArtikel = artikel.filter(a => !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand)
+  // Für den Button: unter Mindestbestand, aber noch nicht offen/bestellt
+  const inOffenerBestellung = new Set()
+  bestellungen.filter(b => b.status !== 'geliefert').forEach(b => {
+    (b.bestellpositionen || []).forEach(p => { if (p.artikel_id) inOffenerBestellung.add(p.artikel_id) })
+  })
+  const mindestbestandArtikel = artikel.filter(a => !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand && !inOffenerBestellung.has(a.id))
   const kategorien = [...new Set([...DEFAULT_KATEGORIEN, ...artikel.map(a => a.kategorie).filter(Boolean)])].sort()
 
   // Offene Bestellungen nach Lieferant gruppieren (für E-Mail / Pickliste)
@@ -89,10 +125,11 @@ export default function Bestellungen() {
           name: b.lieferanten?.name ?? 'Unbekannter Lieferant',
           email: lief?.email, bestellweg: lief?.bestellweg, webshop_url: lief?.webshop_url,
           vorlage: lief?.email_vorlage,
-          bestellungIds: [], positionen: [],
+          bestellungIds: [], positionen: [], bestellungen: [],
         }
       }
       map[key].bestellungIds.push(b.id)
+      map[key].bestellungen.push(b)
       ;(b.bestellpositionen || []).forEach(p => map[key].positionen.push(p))
     })
     return Object.entries(map)
@@ -169,45 +206,45 @@ export default function Bestellungen() {
             </button>
           </div>
 
-          {/* Versand vorbereiten – pro Lieferant E-Mail/Pickliste */}
-          {offeneGruppen.length > 0 && (
-            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {offeneGruppen.map(([liefId, g]) => (
-                <div key={liefId} style={{ background: '#f7faf9', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                  <div>
-                    <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: '14px', color: '#1a2e2a' }}>{g.name}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', marginLeft: '10px' }}>
-                      {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {g.webshop_url && (
-                      <a href={g.webshop_url} target="_blank" rel="noreferrer" style={{ ...btn(false, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>🛒 Webshop</a>
-                    )}
-                    <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g) })}>📋 Pickliste</button>
-                    {g.email && (
-                      <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(g) })}>✉️ E-Mail vorbereiten</button>
-                    )}
-                    <button style={btn(true, false)} onClick={() => gruppeAlsBestellt(g.bestellungIds)}>✓ Als bestellt markieren</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {bestellungenNachStatus.length === 0 ? (
+          {offeneGruppen.length === 0 ? (
             <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
               <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Keine offenen Bestellungen</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {bestellungenNachStatus.map(b => (
-                <BestellungCard
-                  key={b.id}
-                  bestellung={b}
-                  onStatusChange={() => ladenDaten()}
-                  onDelete={() => ladenDaten()}
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+              {offeneGruppen.map(([liefId, g]) => (
+                <div key={liefId}>
+                  {/* Lieferant-Überschrift mit Versand-Aktionen */}
+                  <div style={{ background: '#f7faf9', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: '15px', color: '#1a2e2a' }}>{g.name}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', marginLeft: '10px' }}>
+                        {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {g.webshop_url && (
+                        <a href={g.webshop_url} target="_blank" rel="noreferrer" style={{ ...btn(false, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>🛒 Webshop</a>
+                      )}
+                      <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g) })}>📋 Pickliste</button>
+                      {g.email && (
+                        <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(g) })}>✉️ E-Mail vorbereiten</button>
+                      )}
+                      <button style={btn(true, false)} onClick={() => gruppeAlsBestellt(g.bestellungIds)}>✓ Als bestellt markieren</button>
+                    </div>
+                  </div>
+                  {/* Artikel dieses Lieferanten */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {g.bestellungen.map(b => (
+                      <BestellungCard
+                        key={b.id}
+                        bestellung={b}
+                        onStatusChange={() => ladenDaten()}
+                        onDelete={() => ladenDaten()}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

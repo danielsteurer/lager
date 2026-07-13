@@ -300,6 +300,7 @@ export default function Artikel() {
                   <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{kat}</span>
                   <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>{liste.length} Artikel</span>
                 </div>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: "'Geist', sans-serif" }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
@@ -403,6 +404,7 @@ export default function Artikel() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))
           })()}
