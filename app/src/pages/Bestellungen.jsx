@@ -35,6 +35,11 @@ function buildEinheit(typ, anzahl) {
 const DEFAULT_KATEGORIEN = ['Handschuhe', 'Kanülen / Spritzen', 'Verbandsmaterial', 'Desinfektion', 'Medikamente', 'Ultraschall / EKG', 'Sonstiges']
 const GAUGE_OPTIONEN = [18, 20, 22, 24, 25, 27, 30]
 
+function stueckProEinheit(einheit) {
+  const m = einheit?.match(/^P\/(\d+)/)
+  return m ? parseInt(m[1]) : null
+}
+
 export default function Bestellungen() {
   const [tab, setTab] = useState('offen') // 'offen' | 'bestellt' | 'lager'
   const [bestellungen, setBestellungen] = useState([])
@@ -383,13 +388,19 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
             ))}
           </div>
 
-          {selected && (
-            <div style={{ background: '#f0f5f4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontFamily: "'Geist', sans-serif", color: '#5a8a80' }}>
-              <p style={{ margin: '0 0 4px' }}>Einzelpreis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
-              <p style={{ margin: '0 0 4px' }}>Gesamt ({menge}×): <strong style={{ color: '#3d675e' }}>€{((selected.letzter_preis || 0) * menge).toFixed(2)}</strong></p>
-              <p style={{ margin: 0 }}>Lieferant: <strong>{selected.lieferant_name}</strong></p>
-            </div>
-          )}
+          {selected && (() => {
+            const spE = stueckProEinheit(selected.einheit)
+            return (
+              <div style={{ background: '#f0f5f4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontFamily: "'Geist', sans-serif", color: '#5a8a80' }}>
+                <p style={{ margin: '0 0 4px' }}>Einzelpreis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
+                <p style={{ margin: '0 0 4px' }}>Gesamt ({menge}×): <strong style={{ color: '#3d675e' }}>€{((selected.letzter_preis || 0) * menge).toFixed(2)}</strong></p>
+                {spE && (
+                  <p style={{ margin: '0 0 4px' }}>Stück pro Packung: <strong>{spE}</strong> · Gesamt: <strong style={{ color: '#3d675e' }}>{menge * spE} Stück</strong></p>
+                )}
+                <p style={{ margin: 0 }}>Lieferant: <strong>{selected.lieferant_name}</strong></p>
+              </div>
+            )
+          })()}
 
           <div>
             <label style={lbl}>Bestellmenge</label>
@@ -639,9 +650,12 @@ function NeuerArtikelModal({ lieferanten, kategorien, onClose, onDone }) {
               <input type="number" min="1" value={form.menge} onChange={e => set('menge', Math.max(1, parseInt(e.target.value) || 1))} style={inp} />
             </div>
           </div>
-          {form.preis && (
+          {(form.preis || (einheitTyp === 'packung' && einheitAnzahl)) && (
             <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#5a8a80', margin: '-4px 0 0' }}>
-              Gesamt: <strong style={{ color: '#3d675e' }}>€{(parseFloat(form.preis || 0) * form.menge).toFixed(2)}</strong>
+              {form.preis && <>Gesamt: <strong style={{ color: '#3d675e' }}>€{(parseFloat(form.preis || 0) * form.menge).toFixed(2)}</strong></>}
+              {einheitTyp === 'packung' && einheitAnzahl && (
+                <>{form.preis && ' · '}{einheitAnzahl} Stk/Pkg = <strong style={{ color: '#3d675e' }}>{form.menge * parseInt(einheitAnzahl)} Stück</strong></>
+              )}
             </p>
           )}
         </div>
@@ -728,6 +742,9 @@ function MindestbestandModal({ artikel, onClose, onDone }) {
                       <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} / Min: {a.mindestbestand}</p>
                       <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', margin: '3px 0 0' }}>
                         Einzel: €{(a.letzter_preis || 0).toFixed(2)} · Gesamt: <strong style={{ color: '#3d675e' }}>€{((a.letzter_preis || 0) * (mengen[a.id] ?? 1)).toFixed(2)}</strong>
+                        {stueckProEinheit(a.einheit) && (
+                          <> · {stueckProEinheit(a.einheit)} Stk/Pkg = <strong style={{ color: '#3d675e' }}>{(mengen[a.id] ?? 1) * stueckProEinheit(a.einheit)} Stück</strong></>
+                        )}
                       </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
