@@ -296,9 +296,10 @@ export default function Artikel() {
                 <div
                   onDragOver={handleDragOver}
                   onDrop={() => handleDropOnKategorie(kat)}
-                  style={{ background: '#f0f5f4', padding: '10px 16px', borderBottom: '1px solid #e2ebe8', display: 'flex', alignItems: 'center', gap: '10px', border: draggedArtikel && draggedArtikel.kategorie !== kat ? '2px dashed #3d675e' : 'none' }}>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{kat}</span>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>{liste.length} Artikel</span>
+                  style={{ background: '#3d675e', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px', border: draggedArtikel && draggedArtikel.kategorie !== kat ? '2px dashed #9ad89e' : 'none' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#9ad89e', flexShrink: 0 }} />
+                  <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '17px', fontWeight: 600, color: '#fff', letterSpacing: '0.01em' }}>{kat}</span>
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#c8ddd7', background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '10px' }}>{liste.length} Artikel</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: "'Geist', sans-serif" }}>
