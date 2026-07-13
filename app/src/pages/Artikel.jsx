@@ -305,7 +305,7 @@ export default function Artikel() {
                     <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
                       <th style={{ padding: '8px 16px', width: '36px' }} />
                       {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Status', ''].map((h, idx) => (
-                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 1 ? '140px' : idx === 3 ? '120px' : idx === 4 ? '100px' : 'auto' }}>{h}</th>
+                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 1 ? '140px' : idx === 3 ? '120px' : idx === 4 ? '100px' : idx === 8 ? '110px' : 'auto' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
