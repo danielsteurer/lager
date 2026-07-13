@@ -388,6 +388,14 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
     onDelete()
   }
 
+  async function mengeAendern(positionId, neueMenge) {
+    if (neueMenge < 1) return
+    await supabase.from('bestellpositionen').update({ menge: neueMenge }).eq('id', positionId)
+    onStatusChange()
+  }
+
+  const editierbar = bestellung.status === 'offen'
+
   return (
     <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', overflow: 'hidden' }}>
       <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f5f4' }}>
@@ -417,21 +425,39 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
       <div style={{ padding: '12px 16px', background: '#f7faf9' }}>
         <table style={{ width: '100%', fontSize: '12px', fontFamily: "'Geist', sans-serif" }}>
           <tbody>
-            {positionen.map((p, i) => (
+            {positionen.map((p, i) => {
+              const spE = stueckProEinheit(p.einheit)
+              return (
               <tr key={i} style={{ borderBottom: i < positionen.length - 1 ? '1px solid #e2ebe8' : 'none' }}>
-                <td style={{ padding: '6px 0', color: '#1a2e2a' }}>
-                  Menge: {p.menge} {p.einheit}
-                  {(p.charge_nr || p.verfallsdatum) && (
-                    <span style={{ color: '#8aada5', marginLeft: '10px' }}>
-                      {p.charge_nr && `Charge: ${p.charge_nr}`}
-                      {p.charge_nr && p.verfallsdatum && ' · '}
-                      {p.verfallsdatum && `Verfall: ${new Date(p.verfallsdatum).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}`}
-                    </span>
-                  )}
+                <td style={{ padding: '8px 0', color: '#1a2e2a' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {editierbar ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#8aada5' }}>Menge:</span>
+                        <button onClick={() => mengeAendern(p.id, (p.menge || 1) - 1)} style={{ padding: '2px 9px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff', fontSize: '14px' }}>−</button>
+                        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', minWidth: '24px', textAlign: 'center', fontWeight: 500 }}>{p.menge}</span>
+                        <button onClick={() => mengeAendern(p.id, (p.menge || 1) + 1)} style={{ padding: '2px 9px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff', fontSize: '14px' }}>+</button>
+                        <span style={{ color: '#8aada5' }}>{p.einheit}</span>
+                      </span>
+                    ) : (
+                      <span>Menge: {p.menge} {p.einheit}</span>
+                    )}
+                    {spE && (
+                      <span style={{ fontFamily: "'Geist Mono', monospace", color: '#8aada5' }}>= {p.menge * spE} Stück</span>
+                    )}
+                    {(p.charge_nr || p.verfallsdatum) && (
+                      <span style={{ color: '#8aada5' }}>
+                        {p.charge_nr && `Charge: ${p.charge_nr}`}
+                        {p.charge_nr && p.verfallsdatum && ' · '}
+                        {p.verfallsdatum && `Verfall: ${new Date(p.verfallsdatum).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}`}
+                      </span>
+                    )}
+                  </div>
                 </td>
-                <td style={{ padding: '6px 0', color: '#8aada5', textAlign: 'right' }}>€{((p.preis_pro_einheit || 0) * (p.menge || 1)).toFixed(2)}</td>
+                <td style={{ padding: '8px 0', color: '#8aada5', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>€{((p.preis_pro_einheit || 0) * (p.menge || 1)).toFixed(2)}</td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
