@@ -215,22 +215,23 @@ export default function Bestellungen() {
               {offeneGruppen.map(([liefId, g]) => (
                 <div key={liefId}>
                   {/* Lieferant-Überschrift mit Versand-Aktionen */}
-                  <div style={{ background: '#f7faf9', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: '15px', color: '#1a2e2a' }}>{g.name}</span>
-                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', marginLeft: '10px' }}>
+                  <div style={{ background: '#3d675e', borderRadius: '10px', padding: '14px 18px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', boxShadow: '0 2px 8px rgba(61,103,94,0.25)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#9ad89e', flexShrink: 0 }} />
+                      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: '17px', color: '#fff', letterSpacing: '0.01em' }}>{g.name}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#c8ddd7', background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '10px' }}>
                         {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {g.webshop_url && (
-                        <a href={g.webshop_url} target="_blank" rel="noreferrer" style={{ ...btn(false, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>🛒 Webshop</a>
+                        <a href={g.webshop_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, padding: '7px 14px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>🛒 Webshop</a>
                       )}
-                      <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g) })}>📋 Pickliste</button>
+                      <button style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, padding: '7px 14px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g) })}>📋 Pickliste</button>
                       {g.email && (
-                        <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(g) })}>✉️ E-Mail vorbereiten</button>
+                        <button style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, padding: '7px 14px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(g) })}>✉️ E-Mail vorbereiten</button>
                       )}
-                      <button style={btn(true, false)} onClick={() => gruppeAlsBestellt(g.bestellungIds)}>✓ Als bestellt markieren</button>
+                      <button style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, padding: '7px 14px', borderRadius: '7px', border: 'none', background: '#fff', color: '#3d675e', cursor: 'pointer' }} onClick={() => gruppeAlsBestellt(g.bestellungIds)}>✓ Als bestellt markieren</button>
                     </div>
                   </div>
                   {/* Artikel dieses Lieferanten */}
