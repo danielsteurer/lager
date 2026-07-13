@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { defaultEmailVorlage } from '../lib/emailVorlage'
+import ArtikelFormModal from '../components/ArtikelFormModal'
 
 const btn = (primary, disabled) => ({
   fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500,
@@ -51,6 +52,7 @@ export default function Bestellungen() {
   const [ausArtikelListeModal, setAusArtikelListeModal] = useState(false)
   const [mindestbestandModal, setMindestbestandModal] = useState(false)
   const [vorschau, setVorschau] = useState(null)
+  const [editArtikelId, setEditArtikelId] = useState(null)
 
   useEffect(() => {
     ladenDaten()
@@ -248,6 +250,7 @@ export default function Bestellungen() {
                         bestellung={b}
                         onStatusChange={() => ladenDaten()}
                         onDelete={() => ladenDaten()}
+                        onEdit={setEditArtikelId}
                       />
                     ))}
                   </div>
@@ -274,6 +277,7 @@ export default function Bestellungen() {
                   bestellung={b}
                   onStatusChange={() => ladenDaten()}
                   onDelete={() => ladenDaten()}
+                  onEdit={setEditArtikelId}
                   isGeliefert={false}
                 />
               ))}
@@ -346,11 +350,22 @@ export default function Bestellungen() {
           onDone={() => { setMindestbestandModal(false); ladenDaten() }}
         />
       )}
+      {editArtikelId && (() => {
+        const a = artikel.find(x => x.id === editArtikelId)
+        if (!a) return null
+        return (
+          <ArtikelFormModal
+            artikel={a}
+            onClose={() => setEditArtikelId(null)}
+            onDone={() => { setEditArtikelId(null); ladenDaten() }}
+          />
+        )
+      })()}
     </div>
   )
 }
 
-function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
+function BestellungCard({ bestellung, onStatusChange, onDelete, onEdit, isGeliefert }) {
   const positionen = bestellung.bestellpositionen || []
   const [einbuchend, setEinbuchend] = useState(false)
 
@@ -417,6 +432,9 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          {positionen[0]?.artikel_id && onEdit && (
+            <button onClick={() => onEdit(positionen[0].artikel_id)} title="Artikel bearbeiten" style={{ ...btn(false, false), padding: '7px 12px' }}>✎</button>
+          )}
           {bestellung.status === 'offen' && (
             <>
               <button onClick={() => statusAendern('bestellt')} style={btn(true, false)}>Bestellt</button>
