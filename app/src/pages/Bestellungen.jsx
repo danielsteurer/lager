@@ -10,6 +10,28 @@ const btn = (primary, disabled) => ({
   opacity: disabled ? 0.5 : 1,
 })
 
+const inp = {
+  width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px',
+  fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box',
+}
+const lbl = { fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }
+
+const EINHEIT_TYPEN = [
+  { key: 'stueck',    label: 'Stück',     sub: null,                       einheitLabel: 'Stück' },
+  { key: 'packung',   label: 'Packung',   sub: 'Stück pro Packung',        einheitLabel: 'Packung' },
+  { key: 'flasche',   label: 'Flasche',   sub: 'Milliliter (ml)',          einheitLabel: 'Flasche' },
+  { key: 'rolle',     label: 'Rolle',     sub: 'Stück pro Rolle (optional)', einheitLabel: 'Rolle' },
+  { key: 'sonstiges', label: 'Sonstiges', sub: 'Einheit frei eingeben',    einheitLabel: '' },
+]
+
+function buildEinheit(typ, anzahl) {
+  if (typ === 'stueck') return 'Stück'
+  if (typ === 'flasche') return 'Flasche'
+  if (typ === 'packung') return anzahl ? `P/${anzahl}` : 'P/?'
+  if (typ === 'rolle') return anzahl ? `Rolle/${anzahl}` : 'Rolle'
+  return anzahl || 'Stück'
+}
+
 export default function Bestellungen() {
   const [tab, setTab] = useState('offen') // 'offen' | 'bestellt' | 'lager'
   const [bestellungen, setBestellungen] = useState([])
@@ -18,6 +40,7 @@ export default function Bestellungen() {
   const [loading, setLoading] = useState(true)
   const [neuerArtikelModal, setNeuerArtikelModal] = useState(false)
   const [ausArtikelListeModal, setAusArtikelListeModal] = useState(false)
+  const [mindestbestandModal, setMindestbestandModal] = useState(false)
 
   useEffect(() => {
     ladenDaten()
@@ -42,6 +65,7 @@ export default function Bestellungen() {
   }
 
   const bestellungenNachStatus = bestellungen.filter(b => b.status === tab)
+  const mindestbestandArtikel = artikel.filter(a => !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand)
 
   if (loading) return <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#3d675e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lade…</p>
 
@@ -83,12 +107,15 @@ export default function Bestellungen() {
       {/* Tab: Bestellungen (offen) */}
       {tab === 'offen' && (
         <div>
-          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={() => setAusArtikelListeModal(true)} style={btn(true, false)}>
               + Aus Artikelliste
             </button>
             <button onClick={() => setNeuerArtikelModal(true)} style={btn(false, false)}>
               + Neuer Artikel
+            </button>
+            <button onClick={() => setMindestbestandModal(true)} style={btn(false, false)}>
+              ⚠ Unter Mindestbestand ({mindestbestandArtikel.length})
             </button>
           </div>
 
@@ -157,6 +184,13 @@ export default function Bestellungen() {
           onDone={() => { setNeuerArtikelModal(false); ladenDaten() }}
         />
       )}
+      {mindestbestandModal && (
+        <MindestbestandModal
+          artikel={mindestbestandArtikel}
+          onClose={() => setMindestbestandModal(false)}
+          onDone={() => { setMindestbestandModal(false); ladenDaten() }}
+        />
+      )}
     </div>
   )
 }
@@ -218,11 +252,21 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
 }
 
 function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
+  const [kategorie, setKategorie] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [menge, setMenge] = useState(1)
+  const [suche, setSuche] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const kategorien = [...new Set(artikel.map(a => a.kategorie || 'Sonstiges'))].sort()
   const selected = artikel.find(a => a.id === selectedId)
+
+  // Gefilterte Artikel: nach Kategorie + Suche
+  const gefiltert = artikel.filter(a => {
+    if (kategorie && (a.kategorie || 'Sonstiges') !== kategorie) return false
+    if (suche && !a.bezeichnung.toLowerCase().includes(suche.toLowerCase())) return false
+    return true
+  })
 
   async function hinzufuegen() {
     if (!selectedId) return
@@ -250,33 +294,59 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <div style={{ padding: '24px 28px' }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ padding: '24px 28px 16px' }}>
           <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Aus Artikelliste</h2>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1 }}>
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Artikel</label>
-            <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value || null)}
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a' }}>
-              <option value="">– Artikel auswählen –</option>
-              {artikel.map(a => (
-                <option key={a.id} value={a.id}>{a.bezeichnung} ({a.lieferant_name})</option>
+          {/* Kategorie-Filter */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={lbl}>Kategorie</label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button onClick={() => { setKategorie(''); setSelectedId(null) }}
+                style={{ padding: '6px 12px', borderRadius: '7px', border: `1px solid ${kategorie === '' ? '#3d675e' : '#d1e0db'}`, background: kategorie === '' ? '#f0f5f4' : '#fff', color: kategorie === '' ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: kategorie === '' ? 600 : 400, cursor: 'pointer' }}>
+                Alle
+              </button>
+              {kategorien.map(k => (
+                <button key={k} onClick={() => { setKategorie(k); setSelectedId(null) }}
+                  style={{ padding: '6px 12px', borderRadius: '7px', border: `1px solid ${kategorie === k ? '#3d675e' : '#d1e0db'}`, background: kategorie === k ? '#f0f5f4' : '#fff', color: kategorie === k ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: kategorie === k ? 600 : 400, cursor: 'pointer' }}>
+                  {k}
+                </button>
               ))}
-            </select>
+            </div>
+          </div>
+
+          {/* Suche */}
+          <div style={{ marginBottom: '14px' }}>
+            <input type="text" value={suche} onChange={e => setSuche(e.target.value)} placeholder="Suchen…" style={inp} />
+          </div>
+
+          {/* Artikel-Liste */}
+          <div style={{ marginBottom: '16px', maxHeight: '260px', overflowY: 'auto', border: '1px solid #e2ebe8', borderRadius: '8px' }}>
+            {gefiltert.length === 0 ? (
+              <p style={{ padding: '16px', textAlign: 'center', fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#8aada5', margin: 0 }}>Keine Artikel</p>
+            ) : gefiltert.map(a => (
+              <div key={a.id} onClick={() => setSelectedId(a.id)}
+                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f7faf9', background: selectedId === a.id ? '#f0f5f4' : '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', margin: 0, fontWeight: selectedId === a.id ? 500 : 400 }}>{a.bezeichnung}</p>
+                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} {a.einheit}</p>
+                </div>
+                {selectedId === a.id && <span style={{ color: '#3d675e', fontSize: '16px' }}>✓</span>}
+              </div>
+            ))}
           </div>
 
           {selected && (
             <div style={{ background: '#f0f5f4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontFamily: "'Geist', sans-serif", color: '#5a8a80' }}>
-              <p style={{ margin: '0 0 4px' }}>Bestand Lager: <strong>{selected.lager_bestand} {selected.einheit}</strong></p>
               <p style={{ margin: '0 0 4px' }}>Preis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
               <p style={{ margin: 0 }}>Lieferant: <strong>{selected.lieferant_name}</strong></p>
             </div>
           )}
 
           <div>
-            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Bestellmenge</label>
+            <label style={lbl}>Bestellmenge</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button onClick={() => setMenge(Math.max(1, menge - 1))} style={{ padding: '6px 12px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>−</button>
               <input type="number" min="1" value={menge} onChange={e => setMenge(Math.max(1, parseInt(e.target.value) || 1))}
@@ -302,17 +372,30 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
 
 function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
   const [form, setForm] = useState({ name: '', lieferant_id: '', preis: '', menge: 1, kategorie: '' })
+  const [einheitTyp, setEinheitTyp] = useState('stueck')
+  const [einheitAnzahl, setEinheitAnzahl] = useState('') // Stück pro Packung / ml bei Flasche / Stück pro Rolle
   const [saving, setSaving] = useState(false)
 
+  const typDef = EINHEIT_TYPEN.find(t => t.key === einheitTyp)
+  const einheitVorschau = buildEinheit(einheitTyp, einheitAnzahl)
+  const gueltig = form.name.trim() && form.lieferant_id && form.preis &&
+    !(einheitTyp === 'packung' && !einheitAnzahl) &&
+    !(einheitTyp === 'sonstiges' && !einheitAnzahl.trim())
+
   async function hinzufuegen() {
-    if (!form.name.trim() || !form.lieferant_id || !form.preis) return
+    if (!gueltig) return
     setSaving(true)
+
+    const einheit = buildEinheit(einheitTyp, einheitAnzahl)
+    // Bei Flasche: ml als Spezifikation speichern
+    const spezifikation = einheitTyp === 'flasche' && einheitAnzahl ? `${einheitAnzahl}ml` : null
 
     const artikel = await supabase.from('artikel').insert({
       bezeichnung: form.name.trim(),
       kategorie: form.kategorie.trim() || 'Sonstiges',
       lieferant_id: form.lieferant_id,
-      einheit: 'Stück',
+      einheit,
+      spezifikation,
       letzter_preis: parseFloat(form.preis),
       mindestbestand: 0,
       kein_mindestbestand: true,
@@ -329,7 +412,7 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
           bestellung_id: bestellung.data.id,
           artikel_id: artikel.data.id,
           menge: form.menge,
-          einheit: 'Stück',
+          einheit,
           preis_pro_einheit: parseFloat(form.preis),
         })
       }
@@ -343,29 +426,26 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <div style={{ padding: '24px 28px' }}>
+        <div style={{ padding: '24px 28px 16px' }}>
           <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Neuer Artikel</h2>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Artikel-Name *</label>
+            <label style={lbl}>Artikel-Name *</label>
             <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-              placeholder="z.B. Wundpflaster Spezial" autoFocus
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+              placeholder="z.B. Wundpflaster Spezial" autoFocus style={inp} />
           </div>
 
           <div>
-            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Kategorie</label>
+            <label style={lbl}>Kategorie</label>
             <input type="text" value={form.kategorie} onChange={e => setForm({ ...form, kategorie: e.target.value })}
-              placeholder="z.B. Verbandsmaterial"
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+              placeholder="z.B. Verbandsmaterial" style={inp} />
           </div>
 
           <div>
-            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Lieferant *</label>
-            <select value={form.lieferant_id} onChange={e => setForm({ ...form, lieferant_id: e.target.value })}
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }}>
+            <label style={lbl}>Lieferant *</label>
+            <select value={form.lieferant_id} onChange={e => setForm({ ...form, lieferant_id: e.target.value })} style={inp}>
               <option value="">– Lieferant auswählen –</option>
               {lieferanten.map(l => (
                 <option key={l.id} value={l.id}>{l.name}</option>
@@ -373,16 +453,43 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
             </select>
           </div>
 
+          {/* Einheit */}
+          <div>
+            <label style={lbl}>Einheit *</label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {EINHEIT_TYPEN.map(t => (
+                <button key={t.key} type="button"
+                  onClick={() => { setEinheitTyp(t.key); setEinheitAnzahl('') }}
+                  style={{ padding: '7px 14px', borderRadius: '8px', border: `1px solid ${einheitTyp === t.key ? '#3d675e' : '#d1e0db'}`, background: einheitTyp === t.key ? '#f0f5f4' : '#fff', color: einheitTyp === t.key ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: einheitTyp === t.key ? 600 : 400, cursor: 'pointer' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {typDef?.sub && (
+              <input
+                type={einheitTyp === 'sonstiges' ? 'text' : 'number'}
+                min="1" value={einheitAnzahl}
+                onChange={e => setEinheitAnzahl(e.target.value)}
+                placeholder={typDef.sub}
+                style={{ ...inp, marginTop: '8px' }} />
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+              <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5' }}>Einheit:</span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', color: '#3d675e', background: '#f0f5f4', padding: '2px 8px', borderRadius: '4px' }}>{einheitVorschau}</span>
+              {einheitTyp === 'flasche' && einheitAnzahl && (
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#8aada5' }}>· {einheitAnzahl}ml</span>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Preis (€) *</label>
-              <input type="number" step="0.01" min="0" value={form.preis} onChange={e => setForm({ ...form, preis: e.target.value })}
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+              <label style={lbl}>Preis (€) *</label>
+              <input type="number" step="0.01" min="0" value={form.preis} onChange={e => setForm({ ...form, preis: e.target.value })} style={inp} />
             </div>
             <div>
-              <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Menge</label>
-              <input type="number" min="1" value={form.menge} onChange={e => setForm({ ...form, menge: Math.max(1, parseInt(e.target.value) || 1) })}
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+              <label style={lbl}>Bestellmenge</label>
+              <input type="number" min="1" value={form.menge} onChange={e => setForm({ ...form, menge: Math.max(1, parseInt(e.target.value) || 1) })} style={inp} />
             </div>
           </div>
         </div>
@@ -391,8 +498,101 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
           <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#fff', color: '#3d675e', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, flex: 1 }}>
             Abbrechen
           </button>
-          <button onClick={hinzufuegen} disabled={!form.name.trim() || !form.lieferant_id || !form.preis || saving} style={{ ...btn(true, !form.name.trim() || !form.lieferant_id || !form.preis || saving), flex: 1 }}>
+          <button onClick={hinzufuegen} disabled={!gueltig || saving} style={{ ...btn(true, !gueltig || saving), flex: 1 }}>
             {saving ? '…' : 'Hinzufügen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MindestbestandModal({ artikel, onClose, onDone }) {
+  const [ausgewaehlt, setAusgewaehlt] = useState(new Set(artikel.map(a => a.id)))
+  const [mengen, setMengen] = useState(() => {
+    const init = {}
+    artikel.forEach(a => { init[a.id] = Math.max(1, (a.mindestbestand * 2) - a.lager_bestand) })
+    return init
+  })
+  const [saving, setSaving] = useState(false)
+
+  function toggle(id) {
+    setAusgewaehlt(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function hinzufuegen() {
+    const liste = artikel.filter(a => ausgewaehlt.has(a.id) && mengen[a.id] > 0)
+    if (!liste.length) return
+    setSaving(true)
+
+    for (const a of liste) {
+      const bestellung = await supabase.from('bestellungen').insert({
+        lieferant_id: a.lieferant_id,
+        status: 'offen',
+      }).select('id').single()
+
+      if (bestellung.data) {
+        await supabase.from('bestellpositionen').insert({
+          bestellung_id: bestellung.data.id,
+          artikel_id: a.id,
+          menge: mengen[a.id],
+          einheit: a.einheit,
+          preis_pro_einheit: a.letzter_preis,
+        })
+      }
+    }
+
+    setSaving(false)
+    onDone()
+  }
+
+  const anzahlAn = artikel.filter(a => ausgewaehlt.has(a.id)).length
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '560px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ padding: '24px 28px 16px' }}>
+          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Unter Mindestbestand</h2>
+          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#8aada5', margin: '6px 0 0' }}>Artikel deren Lager-Bestand am oder unter dem Minimum ist.</p>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1 }}>
+          {artikel.length === 0 ? (
+            <p style={{ padding: '24px', textAlign: 'center', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5' }}>Alle Bestände über dem Minimum 🎉</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {artikel.map(a => {
+                const isAn = ausgewaehlt.has(a.id)
+                return (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${isAn ? '#d1e0db' : '#e2ebe8'}`, background: isAn ? '#fff' : '#fafafa', opacity: isAn ? 1 : 0.5 }}>
+                    <input type="checkbox" checked={isAn} onChange={() => toggle(a.id)} style={{ width: '15px', height: '15px', accentColor: '#3d675e', cursor: 'pointer', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', margin: 0 }}>{a.bezeichnung}</p>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} / Min: {a.mindestbestand}</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button onClick={() => setMengen(m => ({ ...m, [a.id]: Math.max(1, (m[a.id] ?? 1) - 1) }))} style={{ padding: '3px 9px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>−</button>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', minWidth: '24px', textAlign: 'center' }}>{mengen[a.id] ?? 1}</span>
+                      <button onClick={() => setMengen(m => ({ ...m, [a.id]: (m[a.id] ?? 1) + 1 }))} style={{ padding: '3px 9px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>+</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#fff', color: '#3d675e', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, flex: 1 }}>
+            Abbrechen
+          </button>
+          <button onClick={hinzufuegen} disabled={anzahlAn === 0 || saving} style={{ ...btn(true, anzahlAn === 0 || saving), flex: 1 }}>
+            {saving ? '…' : `${anzahlAn} zur Bestellliste`}
           </button>
         </div>
       </div>
