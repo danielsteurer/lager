@@ -52,7 +52,7 @@ export default function Bestellungen() {
   async function ladenDaten() {
     try {
       const [best, art, lief] = await Promise.all([
-        supabase.from('bestellungen').select('*, bestellpositionen(*), lieferanten(name)').order('created_at', { ascending: false }),
+        supabase.from('bestellungen').select('*, bestellpositionen(*, artikel(bezeichnung)), lieferanten(name)').order('created_at', { ascending: false }),
         supabase.from('artikel_bestand').select('*'),
         supabase.from('lieferanten').select('*'),
       ])
@@ -202,9 +202,40 @@ export default function Bestellungen() {
 
 function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
   const positionen = bestellung.bestellpositionen || []
+  const [einbuchend, setEinbuchend] = useState(false)
 
   async function statusAendern(neuerStatus) {
     await supabase.from('bestellungen').update({ status: neuerStatus }).eq('id', bestellung.id)
+    onStatusChange()
+  }
+
+  async function einbuchen() {
+    if (!confirm('Alle Positionen ins Lager einbuchen?')) return
+    setEinbuchend(true)
+    for (const p of positionen) {
+      if (!p.artikel_id) continue
+      // Charge ins Lager anlegen (mit Charge-Nr + Verfall aus der Bestellung)
+      await supabase.from('chargen').insert({
+        artikel_id: p.artikel_id,
+        menge: p.menge,
+        lagerort: 'lager',
+        charge_nr: p.charge_nr || null,
+        verfallsdatum: p.verfallsdatum || null,
+      })
+      // Bewegung für Statistik/Audit
+      await supabase.from('bewegungen').insert({
+        artikel_id: p.artikel_id,
+        menge: p.menge,
+        typ: 'wareneingang',
+        notiz: 'Wareneingang aus Bestellung',
+      })
+      // Letzten Preis aktualisieren
+      if (p.preis_pro_einheit) {
+        await supabase.from('artikel').update({ letzter_preis: p.preis_pro_einheit }).eq('id', p.artikel_id)
+      }
+    }
+    await supabase.from('bestellungen').update({ status: 'geliefert', geliefert_am: new Date().toISOString().split('T')[0] }).eq('id', bestellung.id)
+    setEinbuchend(false)
     onStatusChange()
   }
 
@@ -234,7 +265,7 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
           )}
           {bestellung.status === 'bestellt' && (
             <>
-              <button onClick={() => statusAendern('geliefert')} style={btn(true, false)}>Wareneingang</button>
+              <button onClick={einbuchen} disabled={einbuchend} style={btn(true, einbuchend)}>{einbuchend ? 'Bucht ein…' : '📦 Ins Lager einbuchen'}</button>
               <button onClick={() => statusAendern('offen')} style={btn(false, false)}>Zurück</button>
             </>
           )}
@@ -245,8 +276,17 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
           <tbody>
             {positionen.map((p, i) => (
               <tr key={i} style={{ borderBottom: i < positionen.length - 1 ? '1px solid #e2ebe8' : 'none' }}>
-                <td style={{ padding: '6px 0', color: '#1a2e2a' }}>Menge: {p.menge} {p.einheit}</td>
-                <td style={{ padding: '6px 0', color: '#8aada5', textAlign: 'right' }}>€{(p.preis_pro_einheit || 0).toFixed(2)}</td>
+                <td style={{ padding: '6px 0', color: '#1a2e2a' }}>
+                  Menge: {p.menge} {p.einheit}
+                  {(p.charge_nr || p.verfallsdatum) && (
+                    <span style={{ color: '#8aada5', marginLeft: '10px' }}>
+                      {p.charge_nr && `Charge: ${p.charge_nr}`}
+                      {p.charge_nr && p.verfallsdatum && ' · '}
+                      {p.verfallsdatum && `Verfall: ${new Date(p.verfallsdatum).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}`}
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '6px 0', color: '#8aada5', textAlign: 'right' }}>€{((p.preis_pro_einheit || 0) * (p.menge || 1)).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
