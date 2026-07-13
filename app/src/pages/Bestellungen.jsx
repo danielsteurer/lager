@@ -212,15 +212,21 @@ export default function Bestellungen() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-              {offeneGruppen.map(([liefId, g]) => (
+              {offeneGruppen.map(([liefId, g]) => {
+                const gesamtPreis = g.positionen.reduce((s, p) => s + (p.preis_pro_einheit || 0) * (p.menge || 1), 0)
+                const gesamtMenge = g.positionen.reduce((s, p) => s + (p.menge || 0), 0)
+                return (
                 <div key={liefId}>
                   {/* Lieferant-Überschrift mit Versand-Aktionen */}
                   <div style={{ background: '#3d675e', borderRadius: '10px', padding: '14px 18px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', boxShadow: '0 2px 8px rgba(61,103,94,0.25)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#9ad89e', flexShrink: 0 }} />
                       <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: '17px', color: '#fff', letterSpacing: '0.01em' }}>{g.name}</span>
                       <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#c8ddd7', background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '10px' }}>
-                        {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''}
+                        {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''} · {gesamtMenge} Stk
+                      </span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', fontWeight: 600, color: '#fff', background: 'rgba(154,216,158,0.25)', padding: '2px 10px', borderRadius: '10px' }}>
+                        Gesamt: €{gesamtPreis.toFixed(2)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -246,7 +252,8 @@ export default function Bestellungen() {
                     ))}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
