@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { defaultEmailVorlage } from '../lib/emailVorlage'
 
 const btn = (primary, disabled) => ({
   fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500,
@@ -49,6 +50,7 @@ export default function Bestellungen() {
   const [neuerArtikelModal, setNeuerArtikelModal] = useState(false)
   const [ausArtikelListeModal, setAusArtikelListeModal] = useState(false)
   const [mindestbestandModal, setMindestbestandModal] = useState(false)
+  const [vorschau, setVorschau] = useState(null)
 
   useEffect(() => {
     ladenDaten()
@@ -57,7 +59,7 @@ export default function Bestellungen() {
   async function ladenDaten() {
     try {
       const [best, art, lief] = await Promise.all([
-        supabase.from('bestellungen').select('*, bestellpositionen(*, artikel(bezeichnung)), lieferanten(name)').order('created_at', { ascending: false }),
+        supabase.from('bestellungen').select('*, bestellpositionen(*, artikel(bezeichnung, lieferant_artikelnr)), lieferanten(name)').order('created_at', { ascending: false }),
         supabase.from('artikel_bestand').select('*'),
         supabase.from('lieferanten').select('*'),
       ])
@@ -75,6 +77,45 @@ export default function Bestellungen() {
   const bestellungenNachStatus = bestellungen.filter(b => b.status === tab)
   const mindestbestandArtikel = artikel.filter(a => !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand)
   const kategorien = [...new Set([...DEFAULT_KATEGORIEN, ...artikel.map(a => a.kategorie).filter(Boolean)])].sort()
+
+  // Offene Bestellungen nach Lieferant gruppieren (für E-Mail / Pickliste)
+  const offeneGruppen = (() => {
+    const map = {}
+    bestellungen.filter(b => b.status === 'offen').forEach(b => {
+      const key = b.lieferant_id ?? '__unbekannt__'
+      if (!map[key]) {
+        const lief = lieferanten.find(l => l.id === b.lieferant_id)
+        map[key] = {
+          name: b.lieferanten?.name ?? 'Unbekannter Lieferant',
+          email: lief?.email, bestellweg: lief?.bestellweg, webshop_url: lief?.webshop_url,
+          vorlage: lief?.email_vorlage,
+          bestellungIds: [], positionen: [],
+        }
+      }
+      map[key].bestellungIds.push(b.id)
+      ;(b.bestellpositionen || []).forEach(p => map[key].positionen.push(p))
+    })
+    return Object.entries(map)
+  })()
+
+  function emailText(g) {
+    const zeilen = g.positionen
+      .map(p => `  - ${p.artikel?.bezeichnung ?? 'Artikel'}${p.artikel?.lieferant_artikelnr ? ` (Art.-Nr. ${p.artikel.lieferant_artikelnr})` : ''}: ${p.menge} ${p.einheit}`)
+      .join('\n')
+    return (g.vorlage || defaultEmailVorlage(g.name)).replace('{{ARTIKEL}}', zeilen)
+  }
+
+  function picklisteText(g) {
+    return g.positionen
+      .map(p => `• ${p.artikel?.bezeichnung ?? 'Artikel'}\n  Menge: ${p.menge} ${p.einheit}${p.artikel?.lieferant_artikelnr ? `  Art.-Nr.: ${p.artikel.lieferant_artikelnr}` : ''}`)
+      .join('\n\n')
+  }
+
+  async function gruppeAlsBestellt(bestellungIds) {
+    await supabase.from('bestellungen').update({ status: 'bestellt', bestellt_am: new Date().toISOString().split('T')[0] }).in('id', bestellungIds)
+    setVorschau(null)
+    ladenDaten()
+  }
 
   if (loading) return <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#3d675e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lade…</p>
 
@@ -128,6 +169,32 @@ export default function Bestellungen() {
             </button>
           </div>
 
+          {/* Versand vorbereiten – pro Lieferant E-Mail/Pickliste */}
+          {offeneGruppen.length > 0 && (
+            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {offeneGruppen.map(([liefId, g]) => (
+                <div key={liefId} style={{ background: '#f7faf9', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: '14px', color: '#1a2e2a' }}>{g.name}</span>
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', marginLeft: '10px' }}>
+                      {g.positionen.length} Position{g.positionen.length !== 1 ? 'en' : ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {g.webshop_url && (
+                      <a href={g.webshop_url} target="_blank" rel="noreferrer" style={{ ...btn(false, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>🛒 Webshop</a>
+                    )}
+                    <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g) })}>📋 Pickliste</button>
+                    {g.email && (
+                      <button style={btn(false, false)} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(g) })}>✉️ E-Mail vorbereiten</button>
+                    )}
+                    <button style={btn(true, false)} onClick={() => gruppeAlsBestellt(g.bestellungIds)}>✓ Als bestellt markieren</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {bestellungenNachStatus.length === 0 ? (
             <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
               <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Keine offenen Bestellungen</p>
@@ -174,6 +241,39 @@ export default function Bestellungen() {
       {tab === 'lager' && (
         <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '24px', textAlign: 'center' }}>
           <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Lager-Ansicht kommt bald – für jetzt: Gehe zu "Artikel" Tab</p>
+        </div>
+      )}
+
+      {/* Vorschau-Modal: E-Mail / Pickliste */}
+      {vorschau && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+          onClick={e => { if (e.target === e.currentTarget) setVorschau(null) }}>
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '560px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
+              {vorschau.typ === 'email' ? 'E-Mail Vorschau' : 'Pickliste – Online-Shop'}
+            </p>
+            <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '17px', color: '#1a2e2a', margin: '0 0 16px' }}>{vorschau.g.name}</h2>
+            {vorschau.typ === 'email' && vorschau.g.email && (
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#3d675e', margin: '0 0 10px' }}>
+                An: <a href={`mailto:${vorschau.g.email}`} style={{ color: '#3d675e' }}>{vorschau.g.email}</a>
+              </p>
+            )}
+            <textarea readOnly value={vorschau.text}
+              style={{ flex: 1, minHeight: '240px', fontFamily: "'Geist Mono', monospace", fontSize: '13px', color: '#1a2e2a', border: '1px solid #d1e0db', borderRadius: '8px', padding: '12px', resize: 'none', background: '#f7faf9', outline: 'none' }} />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button style={btn(false, false)} onClick={() => setVorschau(null)}>Schließen</button>
+              <button style={btn(false, false)} onClick={() => navigator.clipboard?.writeText(vorschau.text)}>Kopieren</button>
+              {vorschau.typ === 'email' && vorschau.g.email && (
+                <a href={`mailto:${vorschau.g.email}?subject=Nachbestellung%20werkeins%20PG&body=${encodeURIComponent(vorschau.text)}`}
+                  style={{ ...btn(false, false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                  In E-Mail öffnen
+                </a>
+              )}
+              <button style={btn(true, false)} onClick={() => gruppeAlsBestellt(vorschau.g.bestellungIds)}>
+                ✓ Als bestellt markieren
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
