@@ -32,6 +32,9 @@ function buildEinheit(typ, anzahl) {
   return anzahl || 'Stück'
 }
 
+const DEFAULT_KATEGORIEN = ['Handschuhe', 'Kanülen / Spritzen', 'Verbandsmaterial', 'Desinfektion', 'Medikamente', 'Ultraschall / EKG', 'Sonstiges']
+const GAUGE_OPTIONEN = [18, 20, 22, 24, 25, 27, 30]
+
 export default function Bestellungen() {
   const [tab, setTab] = useState('offen') // 'offen' | 'bestellt' | 'lager'
   const [bestellungen, setBestellungen] = useState([])
@@ -66,6 +69,7 @@ export default function Bestellungen() {
 
   const bestellungenNachStatus = bestellungen.filter(b => b.status === tab)
   const mindestbestandArtikel = artikel.filter(a => !a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand)
+  const kategorien = [...new Set([...DEFAULT_KATEGORIEN, ...artikel.map(a => a.kategorie).filter(Boolean)])].sort()
 
   if (loading) return <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#3d675e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lade…</p>
 
@@ -180,6 +184,7 @@ export default function Bestellungen() {
       {neuerArtikelModal && (
         <NeuerArtikelModal
           lieferanten={lieferanten}
+          kategorien={kategorien}
           onClose={() => setNeuerArtikelModal(false)}
           onDone={() => { setNeuerArtikelModal(false); ladenDaten() }}
         />
@@ -331,7 +336,7 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
                 style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f7faf9', background: selectedId === a.id ? '#f0f5f4' : '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', margin: 0, fontWeight: selectedId === a.id ? 500 : 400 }}>{a.bezeichnung}</p>
-                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} {a.einheit}</p>
+                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} {a.einheit} • €{(a.letzter_preis || 0).toFixed(2)}</p>
                 </div>
                 {selectedId === a.id && <span style={{ color: '#3d675e', fontSize: '16px' }}>✓</span>}
               </div>
@@ -340,7 +345,8 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
 
           {selected && (
             <div style={{ background: '#f0f5f4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontFamily: "'Geist', sans-serif", color: '#5a8a80' }}>
-              <p style={{ margin: '0 0 4px' }}>Preis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
+              <p style={{ margin: '0 0 4px' }}>Einzelpreis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
+              <p style={{ margin: '0 0 4px' }}>Gesamt ({menge}×): <strong style={{ color: '#3d675e' }}>€{((selected.letzter_preis || 0) * menge).toFixed(2)}</strong></p>
               <p style={{ margin: 0 }}>Lieferant: <strong>{selected.lieferant_name}</strong></p>
             </div>
           )}
@@ -370,31 +376,51 @@ function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
   )
 }
 
-function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
-  const [form, setForm] = useState({ name: '', lieferant_id: '', preis: '', menge: 1, kategorie: '' })
+function NeuerArtikelModal({ lieferanten, kategorien, onClose, onDone }) {
+  const [form, setForm] = useState({
+    name: '', lieferant_id: '', preis: '', menge: 1, kategorie: '',
+    gauge: '', länge: '', syringe_ml: '', luer_lock: false, spezifikation: '',
+    charge_nr: '', verfallsdatum: '',
+  })
+  const [neueKat, setNeueKat] = useState(false)
+  const [neueKatText, setNeueKatText] = useState('')
   const [einheitTyp, setEinheitTyp] = useState('stueck')
   const [einheitAnzahl, setEinheitAnzahl] = useState('') // Stück pro Packung / ml bei Flasche / Stück pro Rolle
   const [saving, setSaving] = useState(false)
 
   const typDef = EINHEIT_TYPEN.find(t => t.key === einheitTyp)
   const einheitVorschau = buildEinheit(einheitTyp, einheitAnzahl)
-  const gueltig = form.name.trim() && form.lieferant_id && form.preis &&
+  const gueltig = form.name.trim() && form.lieferant_id && form.preis && form.kategorie &&
     !(einheitTyp === 'packung' && !einheitAnzahl) &&
     !(einheitTyp === 'sonstiges' && !einheitAnzahl.trim())
+
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  function katHinzufuegen() {
+    const k = neueKatText.trim()
+    if (!k) return
+    set('kategorie', k)
+    setNeueKat(false)
+    setNeueKatText('')
+  }
 
   async function hinzufuegen() {
     if (!gueltig) return
     setSaving(true)
 
     const einheit = buildEinheit(einheitTyp, einheitAnzahl)
-    // Bei Flasche: ml als Spezifikation speichern
-    const spezifikation = einheitTyp === 'flasche' && einheitAnzahl ? `${einheitAnzahl}ml` : null
+    // Manuelle Spezifikation überschreibt; sonst bei Flasche die ml
+    const spezifikation = form.spezifikation.trim() || (einheitTyp === 'flasche' && einheitAnzahl ? `${einheitAnzahl}ml` : null)
 
     const artikel = await supabase.from('artikel').insert({
       bezeichnung: form.name.trim(),
-      kategorie: form.kategorie.trim() || 'Sonstiges',
+      kategorie: form.kategorie,
       lieferant_id: form.lieferant_id,
       einheit,
+      gauge: form.gauge ? parseInt(form.gauge) : null,
+      länge: form.länge ? parseInt(form.länge) : null,
+      syringe_ml: form.syringe_ml ? parseInt(form.syringe_ml) : null,
+      luer_lock: form.luer_lock,
       spezifikation,
       letzter_preis: parseFloat(form.preis),
       mindestbestand: 0,
@@ -414,6 +440,8 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
           menge: form.menge,
           einheit,
           preis_pro_einheit: parseFloat(form.preis),
+          charge_nr: form.charge_nr.trim() || null,
+          verfallsdatum: form.verfallsdatum || null,
         })
       }
     }
@@ -425,27 +453,53 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ padding: '24px 28px 16px' }}>
           <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Neuer Artikel</h2>
+          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#8aada5', margin: '6px 0 0' }}>Wird in die Artikelliste übernommen und zur Bestellliste hinzugefügt.</p>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
             <label style={lbl}>Artikel-Name *</label>
-            <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+            <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="z.B. Wundpflaster Spezial" autoFocus style={inp} />
           </div>
 
+          {/* Kategorie mit Dropdown + Neu */}
           <div>
-            <label style={lbl}>Kategorie</label>
-            <input type="text" value={form.kategorie} onChange={e => setForm({ ...form, kategorie: e.target.value })}
-              placeholder="z.B. Verbandsmaterial" style={inp} />
+            <label style={lbl}>Kategorie *</label>
+            {!neueKat ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select value={form.kategorie} onChange={e => set('kategorie', e.target.value)} style={{ ...inp, flex: 1 }}>
+                  <option value="">– Kategorie wählen –</option>
+                  {kategorien.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <button type="button" onClick={() => { setNeueKat(true); setNeueKatText('') }}
+                  style={{ flexShrink: 0, padding: '9px 14px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#f7faf9', color: '#3d675e', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500 }}>
+                  + Neu
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input autoFocus value={neueKatText} onChange={e => setNeueKatText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && katHinzufuegen()}
+                  placeholder="Neue Kategorie eingeben" style={{ ...inp, flex: 1 }} />
+                <button type="button" onClick={katHinzufuegen}
+                  style={{ flexShrink: 0, padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#3d675e', color: '#fff', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500 }}>
+                  Hinzufügen
+                </button>
+                <button type="button" onClick={() => setNeueKat(false)}
+                  style={{ flexShrink: 0, padding: '9px 10px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#fff', color: '#8aada5', cursor: 'pointer', fontSize: '13px' }}>
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           <div>
             <label style={lbl}>Lieferant *</label>
-            <select value={form.lieferant_id} onChange={e => setForm({ ...form, lieferant_id: e.target.value })} style={inp}>
+            <select value={form.lieferant_id} onChange={e => set('lieferant_id', e.target.value)} style={inp}>
               <option value="">– Lieferant auswählen –</option>
               {lieferanten.map(l => (
                 <option key={l.id} value={l.id}>{l.name}</option>
@@ -482,16 +536,74 @@ function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
             </div>
           </div>
 
+          {/* Kanülen-Spezifikation */}
+          <div>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', margin: '0 0 8px' }}><strong>Kanülen (optional)</strong></p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={lbl}>Gauge (G)</label>
+                <select value={form.gauge} onChange={e => set('gauge', e.target.value)} style={inp}>
+                  <option value="">– Nicht angeben –</option>
+                  {GAUGE_OPTIONEN.map(g => <option key={g} value={g}>{g}G</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Länge (mm)</label>
+                <input type="number" min="0" value={form.länge} onChange={e => set('länge', e.target.value)} placeholder="z.B. 40" style={inp} />
+              </div>
+            </div>
+          </div>
+
+          {/* Spritzen-Spezifikation */}
+          <div>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', margin: '0 0 8px' }}><strong>Spritzen (optional)</strong></p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={lbl}>Volumen (ml)</label>
+                <input type="number" min="0" value={form.syringe_ml} onChange={e => set('syringe_ml', e.target.value)} placeholder="z.B. 20" style={inp} />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: form.luer_lock ? '#f0f5f4' : '#fafafa', borderRadius: '8px', border: `1px solid ${form.luer_lock ? '#d1e0db' : '#e2ebe8'}`, cursor: 'pointer', marginTop: '22px' }}>
+                <input type="checkbox" checked={form.luer_lock} onChange={e => set('luer_lock', e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#3d675e', cursor: 'pointer' }} />
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80' }}>Luer Lock</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Spezifikation manuell */}
+          <div>
+            <label style={lbl}>Spezifikation (manuell)</label>
+            <input value={form.spezifikation} onChange={e => set('spezifikation', e.target.value)}
+              placeholder="z.B. '20ml Luer', überschreibt automatische Angabe" style={inp} />
+          </div>
+
+          {/* Charge + Verfall */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={lbl}>Preis (€) *</label>
-              <input type="number" step="0.01" min="0" value={form.preis} onChange={e => setForm({ ...form, preis: e.target.value })} style={inp} />
+              <label style={lbl}>Chargennummer</label>
+              <input value={form.charge_nr} onChange={e => set('charge_nr', e.target.value)} placeholder="z.B. LOT12345" style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Verfallsdatum</label>
+              <input type="date" value={form.verfallsdatum} onChange={e => set('verfallsdatum', e.target.value)} style={inp} />
+            </div>
+          </div>
+
+          {/* Preis + Menge */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={lbl}>Einzelpreis (€) *</label>
+              <input type="number" step="0.01" min="0" value={form.preis} onChange={e => set('preis', e.target.value)} style={inp} />
             </div>
             <div>
               <label style={lbl}>Bestellmenge</label>
-              <input type="number" min="1" value={form.menge} onChange={e => setForm({ ...form, menge: Math.max(1, parseInt(e.target.value) || 1) })} style={inp} />
+              <input type="number" min="1" value={form.menge} onChange={e => set('menge', Math.max(1, parseInt(e.target.value) || 1))} style={inp} />
             </div>
           </div>
+          {form.preis && (
+            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#5a8a80', margin: '-4px 0 0' }}>
+              Gesamt: <strong style={{ color: '#3d675e' }}>€{(parseFloat(form.preis || 0) * form.menge).toFixed(2)}</strong>
+            </p>
+          )}
         </div>
 
         <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
@@ -574,6 +686,9 @@ function MindestbestandModal({ artikel, onClose, onDone }) {
                     <div style={{ flex: 1 }}>
                       <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', margin: 0 }}>{a.bezeichnung}</p>
                       <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>{a.lieferant_name} • Lager: {a.lager_bestand} / Min: {a.mindestbestand}</p>
+                      <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', margin: '3px 0 0' }}>
+                        Einzel: €{(a.letzter_preis || 0).toFixed(2)} · Gesamt: <strong style={{ color: '#3d675e' }}>€{((a.letzter_preis || 0) * (mengen[a.id] ?? 1)).toFixed(2)}</strong>
+                      </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button onClick={() => setMengen(m => ({ ...m, [a.id]: Math.max(1, (m[a.id] ?? 1) - 1) }))} style={{ padding: '3px 9px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>−</button>
