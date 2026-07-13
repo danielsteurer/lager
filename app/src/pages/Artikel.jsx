@@ -305,8 +305,8 @@ export default function Artikel() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
                       <th style={{ padding: '8px 16px', width: '36px' }} />
-                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Status', ''].map((h, idx) => (
-                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 1 ? '140px' : idx === 3 ? '120px' : idx === 4 ? '100px' : idx === 8 ? '110px' : 'auto' }}>{h}</th>
+                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Preis', 'Status', ''].map((h, idx) => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 3 ? '120px' : idx === 4 ? '100px' : idx === 9 ? '110px' : 'auto', maxWidth: idx === 1 || idx === 2 ? '110px' : 'none' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -329,7 +329,7 @@ export default function Artikel() {
                           {a.bezeichnung}
                           {a.auf_merkliste && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', color: '#3d675e', background: '#f0f5f4', padding: '1px 5px', borderRadius: '3px', marginLeft: '6px' }}>Bestellt</span>}
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '50px' }}>
+                        <td style={{ padding: '11px 10px', color: '#5a8a80', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '50px', maxWidth: '110px' }}>
                           {a.spezifikation ? (
                             <span>{a.spezifikation}</span>
                           ) : (
@@ -347,7 +347,7 @@ export default function Artikel() {
                             </>
                           )}
                         </td>
-                        <td style={{ padding: '11px 16px', color: '#5a8a80', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>{a.lieferant_name}</td>
+                        <td style={{ padding: '11px 10px', color: '#5a8a80', fontSize: '12px', minHeight: '50px', verticalAlign: 'middle', maxWidth: '110px', lineHeight: 1.3 }}>{a.lieferant_name}</td>
                         <td style={{ padding: '11px 16px', fontWeight: 500, color: (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) ? '#991b1b' : '#1a2e2a', minHeight: '50px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span>{a.lager_bestand} <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '12px' }}>{a.einheit}</span></span>
@@ -384,10 +384,13 @@ export default function Artikel() {
                           })()}
                         </td>
                         <td style={{ padding: '11px 16px', color: '#8aada5', minHeight: '50px', verticalAlign: 'middle' }}>{a.kein_mindestbestand ? '—' : a.mindestbestand}</td>
-                        <td style={{ padding: '11px 16px', color: '#8aada5', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '11px 10px', color: '#8aada5', fontSize: '13px', minHeight: '50px', verticalAlign: 'middle' }}>
                           {a.naechstes_verfallsdatum ? new Date(a.naechstes_verfallsdatum).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' }) : '—'}
                         </td>
-                        <td style={{ padding: '11px 16px', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
+                        <td style={{ padding: '11px 10px', color: '#5a8a80', fontSize: '13px', fontFamily: "'Geist Mono', monospace", minHeight: '50px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          {a.letzter_preis != null ? `€${Number(a.letzter_preis).toFixed(2)}` : '—'}
+                        </td>
+                        <td style={{ padding: '11px 10px', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
                           <StatusBadge lagerBestand={a.lager_bestand} mindestbestand={a.mindestbestand} verfallsdatum={a.naechstes_verfallsdatum} keinMindestbestand={a.kein_mindestbestand} />
                         </td>
                         <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', minHeight: '50px', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
