@@ -1,271 +1,401 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { defaultEmailVorlage } from '../lib/emailVorlage'
 
-const btn = (primary) => ({
+const btn = (primary, disabled) => ({
   fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500,
   padding: '7px 16px', borderRadius: '7px', border: primary ? 'none' : '1px solid #d1e0db',
-  cursor: 'pointer', background: primary ? '#3d675e' : '#fff', color: primary ? '#fff' : '#3d675e',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  background: disabled ? '#e2ebe8' : (primary ? '#3d675e' : '#fff'),
+  color: disabled ? '#8aada5' : (primary ? '#fff' : '#3d675e'),
+  opacity: disabled ? 0.5 : 1,
 })
 
 export default function Bestellungen() {
+  const [tab, setTab] = useState('offen') // 'offen' | 'bestellt' | 'lager'
+  const [bestellungen, setBestellungen] = useState([])
   const [artikel, setArtikel] = useState([])
+  const [lieferanten, setLieferanten] = useState([])
   const [loading, setLoading] = useState(true)
-  const [mengen, setMengen] = useState({})
-  const [ausgewaehlt, setAusgewaehlt] = useState(new Set())
-  const [vorschau, setVorschau] = useState(null)
-  const [bestellt, setBestellt] = useState({})
-
-  const [vorlagen, setVorlagen] = useState({}) // lieferantId → email_vorlage
+  const [neuerArtikelModal, setNeuerArtikelModal] = useState(false)
+  const [ausArtikelListeModal, setAusArtikelListeModal] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('artikel_bestand').select('*'),
-      supabase.from('artikel').select('id, bestellmenge'),
-      supabase.from('lieferanten').select('id, email_vorlage'),
-    ]).then(([{ data: bestand }, { data: bm }, { data: lief }]) => {
-      const bmMap = {}
-      ;(bm ?? []).forEach(r => { bmMap[r.id] = r.bestellmenge })
-      const alle = (bestand ?? []).map(a => ({ ...a, bestellmenge: bmMap[a.id] }))
-      const relevant = alle.filter(a => a.auf_merkliste || (!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand))
-      setArtikel(relevant)
-      const init = {}
-      relevant.forEach(a => { init[a.id] = a.bestellmenge ?? Math.max(1, (a.mindestbestand * 2) - a.lager_bestand) })
-      setMengen(init)
-      setAusgewaehlt(new Set(relevant.map(a => a.id)))
-      const vm = {}
-      ;(lief ?? []).forEach(l => { if (l.email_vorlage) vm[l.id] = l.email_vorlage })
-      setVorlagen(vm)
-      setLoading(false)
-    })
+    ladenDaten()
   }, [])
 
-  const gruppen = useMemo(() => {
-    const map = {}
-    artikel.forEach(a => {
-      const key = a.lieferant_id ?? '__unbekannt__'
-      if (!map[key]) map[key] = { name: a.lieferant_name ?? 'Unbekannter Lieferant', bestellweg: a.lieferant_bestellweg, email: a.lieferant_email, webshop: a.lieferant_webshop, artikel: [] }
-      map[key].artikel.push(a)
-    })
-    return Object.entries(map)
-  }, [artikel])
+  async function ladenDaten() {
+    try {
+      const [best, art, lief] = await Promise.all([
+        supabase.from('bestellungen').select('*, bestellpositionen(*), lieferanten(name)').order('created_at', { ascending: false }),
+        supabase.from('artikel_bestand').select('*'),
+        supabase.from('lieferanten').select('*'),
+      ])
 
-  function toggleArtikel(id) {
-    setAusgewaehlt(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function toggleGruppe(artikelListe, liefId) {
-    const alleAn = artikelListe.every(a => ausgewaehlt.has(a.id))
-    setAusgewaehlt(prev => {
-      const next = new Set(prev)
-      artikelListe.forEach(a => alleAn ? next.delete(a.id) : next.add(a.id))
-      return next
-    })
-  }
-
-  // Nur ausgewählte Artikel einer Gruppe
-  function ausgewaehlteListe(artikelListe) {
-    return artikelListe.filter(a => ausgewaehlt.has(a.id) && mengen[a.id] > 0)
-  }
-
-  function emailText(lieferantId, lieferantName, artikelListe) {
-    const zeilen = ausgewaehlteListe(artikelListe)
-      .map(a => `  - ${a.bezeichnung}${a.lieferant_artikelnr ? ` (Art.-Nr. ${a.lieferant_artikelnr})` : ''}: ${mengen[a.id]} ${a.einheit}`)
-      .join('\n')
-    const vorlage = vorlagen[lieferantId] || defaultEmailVorlage(lieferantName)
-    return vorlage.replace('{{ARTIKEL}}', zeilen)
-  }
-
-  function picklisteText(artikelListe) {
-    return ausgewaehlteListe(artikelListe)
-      .map(a => `• ${a.bezeichnung}\n  Menge: ${mengen[a.id]} ${a.einheit}${a.lieferant_artikelnr ? `  Art.-Nr.: ${a.lieferant_artikelnr}` : ''}`)
-      .join('\n\n')
-  }
-
-  async function alsBestelltMarkieren(lieferantId, artikelListe) {
-    const liste = ausgewaehlteListe(artikelListe)
-    if (!liste.length) return
-    const { data: bestellung } = await supabase.from('bestellungen').insert({
-      lieferant_id: lieferantId === '__unbekannt__' ? null : lieferantId,
-      status: 'bestellt',
-      bestellt_am: new Date().toISOString().split('T')[0],
-    }).select('id').single()
-
-    if (bestellung) {
-      await supabase.from('bestellpositionen').insert(
-        liste.map(a => ({ bestellung_id: bestellung.id, artikel_id: a.id, menge: mengen[a.id], einheit: a.einheit, preis_pro_einheit: a.letzter_preis }))
-      )
-      await supabase.from('artikel').update({ auf_merkliste: false }).in('id', liste.map(a => a.id))
+      setBestellungen(best.data ?? [])
+      setArtikel(art.data ?? [])
+      setLieferanten(lief.data ?? [])
+      setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
     }
-    setBestellt(b => ({ ...b, [lieferantId]: true }))
-    setVorschau(null)
   }
+
+  const bestellungenNachStatus = bestellungen.filter(b => b.status === tab)
 
   if (loading) return <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#3d675e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lade…</p>
 
   return (
-    <div>
-      <div className="mb-6">
+    <div style={{ padding: '24px' }}>
+      <div style={{ marginBottom: '24px' }}>
         <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', letterSpacing: '0.06em', color: '#3d675e', textTransform: 'uppercase', marginBottom: '6px' }}>
           werkeins PG · Lager
         </p>
         <h1 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 300, fontSize: '32px', color: '#1a2e2a', margin: 0, lineHeight: 1.05 }}>
-          Nachbestellung
+          Bestellungen
         </h1>
-        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', marginTop: '6px', marginBottom: 0 }}>
-          Artikel unter Mindestbestand + Merkliste · Auswahl anpassen · Bestellung vorbereiten
-        </p>
       </div>
 
-      {artikel.length === 0 && (
-        <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
-          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Kein Nachbestellbedarf – alle Bestände über dem Minimum.</p>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #e2ebe8', paddingBottom: '16px' }}>
+        {[
+          { key: 'offen', label: 'Bestellungen' },
+          { key: 'bestellt', label: 'Bestellt' },
+          { key: 'lager', label: 'Lager' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500,
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: tab === t.key ? '#3d675e' : '#8aada5',
+              paddingBottom: '8px',
+              borderBottom: tab === t.key ? '3px solid #3d675e' : 'none',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t.label} ({bestellungen.filter(b => b.status === t.key).length})
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Bestellungen (offen) */}
+      {tab === 'offen' && (
+        <div>
+          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
+            <button onClick={() => setAusArtikelListeModal(true)} style={btn(true, false)}>
+              + Aus Artikelliste
+            </button>
+            <button onClick={() => setNeuerArtikelModal(true)} style={btn(false, false)}>
+              + Neuer Artikel
+            </button>
+          </div>
+
+          {bestellungenNachStatus.length === 0 ? (
+            <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Keine offenen Bestellungen</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {bestellungenNachStatus.map(b => (
+                <BestellungCard
+                  key={b.id}
+                  bestellung={b}
+                  onStatusChange={() => ladenDaten()}
+                  onDelete={() => ladenDaten()}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {gruppen.map(([liefId, g]) => {
-          const alleAn = g.artikel.every(a => ausgewaehlt.has(a.id))
-          const anzahlAn = g.artikel.filter(a => ausgewaehlt.has(a.id)).length
-          const istBestellt = bestellt[liefId]
-
-          return (
-            <div key={liefId} style={{ background: '#fff', border: `1px solid ${istBestellt ? '#9ad89e' : '#e2ebe8'}`, borderRadius: '12px', overflow: 'hidden' }}>
-
-              {/* Lieferant-Header */}
-              <div style={{ background: istBestellt ? '#f0fdf4' : '#f7faf9', padding: '14px 20px', borderBottom: '1px solid #e2ebe8', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {!istBestellt && (
-                    <input type="checkbox" checked={alleAn} onChange={() => toggleGruppe(g.artikel, liefId)}
-                      style={{ width: '15px', height: '15px', accentColor: '#3d675e', cursor: 'pointer', flexShrink: 0 }} />
-                  )}
-                  <div>
-                    <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: '15px', color: '#1a2e2a' }}>{g.name}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', marginLeft: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {g.bestellweg === 'online' ? 'Online-Shop' : g.bestellweg === 'email' ? 'E-Mail' : 'Telefon'}
-                    </span>
-                    {!istBestellt && (
-                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: anzahlAn > 0 ? '#3d675e' : '#fca5a5', marginLeft: '8px' }}>
-                        {anzahlAn} / {g.artikel.length} ausgewählt
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {istBestellt ? (
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#166534', background: '#dcfce7', padding: '4px 10px', borderRadius: '6px' }}>✓ Als bestellt markiert</span>
-                ) : (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {g.bestellweg === 'online' && (
-                      <button style={btn(false)} onClick={() => setVorschau({ liefId, g, typ: 'pickliste', text: picklisteText(g.artikel) })}>
-                        📋 Pickliste
-                      </button>
-                    )}
-                    {g.email && (
-                      <button style={btn(false)} onClick={() => setVorschau({ liefId, g, typ: 'email', text: emailText(liefId, g.name, g.artikel) })}>
-                        ✉️ E-Mail vorbereiten
-                      </button>
-                    )}
-                    <button style={{ ...btn(true), opacity: anzahlAn === 0 ? 0.4 : 1 }}
-                      disabled={anzahlAn === 0}
-                      onClick={() => alsBestelltMarkieren(liefId, g.artikel)}>
-                      ✓ Als bestellt markieren
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Artikelliste */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: "'Geist', sans-serif" }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
-                    {(!istBestellt ? ['', 'Artikel', 'Lager', 'Mindest', 'Bestellmenge'] : ['Artikel', 'Lager', 'Mindest', 'Bestellmenge']).map(h => (
-                      <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.artikel.map((a, i) => {
-                    const isAn = ausgewaehlt.has(a.id)
-                    return (
-                      <tr key={a.id} style={{ borderBottom: i < g.artikel.length - 1 ? '1px solid #f7faf9' : 'none', opacity: istBestellt || isAn ? 1 : 0.4 }}>
-                        {!istBestellt && (
-                          <td style={{ padding: '10px 16px', width: '36px' }}>
-                            <input type="checkbox" checked={isAn} onChange={() => toggleArtikel(a.id)}
-                              style={{ width: '15px', height: '15px', accentColor: '#3d675e', cursor: 'pointer' }} />
-                          </td>
-                        )}
-                        <td style={{ padding: '10px 16px', color: isAn ? '#1a2e2a' : '#8aada5' }}>
-                          {a.kritisch && <span style={{ color: '#3d675e', marginRight: '6px' }}>★</span>}
-                          {a.bezeichnung}
-                          {a.auf_merkliste && !(!a.kein_mindestbestand && a.lager_bestand <= a.mindestbestand) && (
-                            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', color: '#8aada5', marginLeft: '6px' }}>Merkliste</span>
-                          )}
-                        </td>
-                        <td style={{ padding: '10px 16px', color: '#5a8a80', fontFamily: "'Geist Mono', monospace", fontSize: '13px' }}>
-                          {a.lager_bestand} {a.einheit}
-                        </td>
-                        <td style={{ padding: '10px 16px', color: '#8aada5', fontFamily: "'Geist Mono', monospace", fontSize: '13px' }}>
-                          {a.kein_mindestbestand ? '—' : `${a.mindestbestand} ${a.einheit}`}
-                        </td>
-                        <td style={{ padding: '8px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button onClick={() => setMengen(m => ({ ...m, [a.id]: Math.max(0, (m[a.id] ?? 1) - 1) }))}
-                              style={{ ...btn(false), padding: '3px 9px', fontSize: '15px' }}>−</button>
-                            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '14px', color: '#1a2e2a', minWidth: '28px', textAlign: 'center' }}>
-                              {mengen[a.id] ?? 0}
-                            </span>
-                            <button onClick={() => setMengen(m => ({ ...m, [a.id]: (m[a.id] ?? 0) + 1 }))}
-                              style={{ ...btn(false), padding: '3px 9px', fontSize: '15px' }}>+</button>
-                            <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5' }}>{a.einheit}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+      {/* Tab: Bestellt */}
+      {tab === 'bestellt' && (
+        <div>
+          {bestellungenNachStatus.length === 0 ? (
+            <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Keine bestellten Artikel</p>
             </div>
-          )
-        })}
-      </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {bestellungenNachStatus.map(b => (
+                <BestellungCard
+                  key={b.id}
+                  bestellung={b}
+                  onStatusChange={() => ladenDaten()}
+                  onDelete={() => ladenDaten()}
+                  isGeliefert={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Vorschau-Modal */}
-      {vorschau && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
-          onClick={e => { if (e.target === e.currentTarget) setVorschau(null) }}>
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '560px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#3d675e', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>
-              {vorschau.typ === 'email' ? 'E-Mail Vorschau' : 'Pickliste – Online-Shop'}
-            </p>
-            <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '17px', color: '#1a2e2a', margin: '0 0 16px' }}>{vorschau.g.name}</h2>
-            {vorschau.typ === 'email' && vorschau.g.email && (
-              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#3d675e', margin: '0 0 10px' }}>
-                An: <a href={`mailto:${vorschau.g.email}`} style={{ color: '#3d675e' }}>{vorschau.g.email}</a>
-              </p>
-            )}
-            <textarea readOnly value={vorschau.text}
-              style={{ flex: 1, minHeight: '240px', fontFamily: "'Geist Mono', monospace", fontSize: '13px', color: '#1a2e2a', border: '1px solid #d1e0db', borderRadius: '8px', padding: '12px', resize: 'none', background: '#f7faf9', outline: 'none' }} />
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-              <button style={btn(false)} onClick={() => setVorschau(null)}>Schließen</button>
-              <button style={btn(false)} onClick={() => navigator.clipboard?.writeText(vorschau.text)}>Kopieren</button>
-              {vorschau.typ === 'email' && vorschau.g.email && (
-                <a href={`mailto:${vorschau.g.email}?subject=Nachbestellung%20werkeins%20PG&body=${encodeURIComponent(vorschau.text)}`}
-                  style={{ ...btn(true), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                  In E-Mail öffnen
-                </a>
-              )}
-              <button style={btn(true)} onClick={() => alsBestelltMarkieren(vorschau.liefId, vorschau.g.artikel)}>
-                ✓ Als bestellt markieren
-              </button>
+      {/* Tab: Lager */}
+      {tab === 'lager' && (
+        <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5', margin: 0 }}>Lager-Ansicht kommt bald – für jetzt: Gehe zu "Artikel" Tab</p>
+        </div>
+      )}
+
+      {/* Modals */}
+      {ausArtikelListeModal && (
+        <AusArtikelListeModal
+          artikel={artikel}
+          lieferanten={lieferanten}
+          onClose={() => setAusArtikelListeModal(false)}
+          onDone={() => { setAusArtikelListeModal(false); ladenDaten() }}
+        />
+      )}
+      {neuerArtikelModal && (
+        <NeuerArtikelModal
+          lieferanten={lieferanten}
+          onClose={() => setNeuerArtikelModal(false)}
+          onDone={() => { setNeuerArtikelModal(false); ladenDaten() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
+  const positionen = bestellung.bestellpositionen || []
+
+  async function statusAendern(neuerStatus) {
+    await supabase.from('bestellungen').update({ status: neuerStatus }).eq('id', bestellung.id)
+    onStatusChange()
+  }
+
+  async function loeschen() {
+    if (!confirm('Bestellung wirklich löschen?')) return
+    await supabase.from('bestellungen').delete().eq('id', bestellung.id)
+    onDelete()
+  }
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f5f4' }}>
+        <div>
+          <p style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: '14px', color: '#1a2e2a', margin: 0 }}>
+            {positionen.length > 0 ? positionen[0].artikel?.bezeichnung : 'Artikel nicht gefunden'}
+          </p>
+          <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '4px 0 0' }}>
+            Lieferant: {bestellung.lieferanten?.name || 'Unbekannt'} • Preis: €{positionen.reduce((sum, p) => sum + (p.preis_pro_einheit || 0) * (p.menge || 1), 0).toFixed(2)}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {bestellung.status === 'offen' && (
+            <>
+              <button onClick={() => statusAendern('bestellt')} style={btn(true, false)}>Bestellt</button>
+              <button onClick={loeschen} style={{ ...btn(false, false), borderColor: '#fca5a5', color: '#991b1b' }}>Löschen</button>
+            </>
+          )}
+          {bestellung.status === 'bestellt' && (
+            <>
+              <button onClick={() => statusAendern('geliefert')} style={btn(true, false)}>Wareneingang</button>
+              <button onClick={() => statusAendern('offen')} style={btn(false, false)}>Zurück</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div style={{ padding: '12px 16px', background: '#f7faf9' }}>
+        <table style={{ width: '100%', fontSize: '12px', fontFamily: "'Geist', sans-serif" }}>
+          <tbody>
+            {positionen.map((p, i) => (
+              <tr key={i} style={{ borderBottom: i < positionen.length - 1 ? '1px solid #e2ebe8' : 'none' }}>
+                <td style={{ padding: '6px 0', color: '#1a2e2a' }}>Menge: {p.menge} {p.einheit}</td>
+                <td style={{ padding: '6px 0', color: '#8aada5', textAlign: 'right' }}>€{(p.preis_pro_einheit || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function AusArtikelListeModal({ artikel, lieferanten, onClose, onDone }) {
+  const [selectedId, setSelectedId] = useState(null)
+  const [menge, setMenge] = useState(1)
+  const [saving, setSaving] = useState(false)
+
+  const selected = artikel.find(a => a.id === selectedId)
+
+  async function hinzufuegen() {
+    if (!selectedId) return
+    setSaving(true)
+
+    const bestellung = await supabase.from('bestellungen').insert({
+      lieferant_id: selected.lieferant_id,
+      status: 'offen',
+    }).select('id').single()
+
+    if (bestellung.data) {
+      await supabase.from('bestellpositionen').insert({
+        bestellung_id: bestellung.data.id,
+        artikel_id: selectedId,
+        menge,
+        einheit: selected.einheit,
+        preis_pro_einheit: selected.letzter_preis,
+      })
+    }
+
+    setSaving(false)
+    onDone()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ padding: '24px 28px' }}>
+          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Aus Artikelliste</h2>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1 }}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Artikel</label>
+            <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value || null)}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a' }}>
+              <option value="">– Artikel auswählen –</option>
+              {artikel.map(a => (
+                <option key={a.id} value={a.id}>{a.bezeichnung} ({a.lieferant_name})</option>
+              ))}
+            </select>
+          </div>
+
+          {selected && (
+            <div style={{ background: '#f0f5f4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontFamily: "'Geist', sans-serif", color: '#5a8a80' }}>
+              <p style={{ margin: '0 0 4px' }}>Bestand Lager: <strong>{selected.lager_bestand} {selected.einheit}</strong></p>
+              <p style={{ margin: '0 0 4px' }}>Preis: <strong>€{(selected.letzter_preis || 0).toFixed(2)}</strong></p>
+              <p style={{ margin: 0 }}>Lieferant: <strong>{selected.lieferant_name}</strong></p>
+            </div>
+          )}
+
+          <div>
+            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Bestellmenge</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setMenge(Math.max(1, menge - 1))} style={{ padding: '6px 12px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>−</button>
+              <input type="number" min="1" value={menge} onChange={e => setMenge(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ width: '60px', padding: '6px', border: '1px solid #d1e0db', borderRadius: '6px', textAlign: 'center' }} />
+              <button onClick={() => setMenge(menge + 1)} style={{ padding: '6px 12px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>+</button>
+              <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#8aada5' }}>{selected?.einheit}</span>
             </div>
           </div>
         </div>
-      )}
+
+        <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#fff', color: '#3d675e', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, flex: 1 }}>
+            Abbrechen
+          </button>
+          <button onClick={hinzufuegen} disabled={!selectedId || saving} style={{ ...btn(true, !selectedId || saving), flex: 1 }}>
+            {saving ? '…' : 'Hinzufügen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NeuerArtikelModal({ lieferanten, onClose, onDone }) {
+  const [form, setForm] = useState({ name: '', lieferant_id: '', preis: '', menge: 1, kategorie: '' })
+  const [saving, setSaving] = useState(false)
+
+  async function hinzufuegen() {
+    if (!form.name.trim() || !form.lieferant_id || !form.preis) return
+    setSaving(true)
+
+    const artikel = await supabase.from('artikel').insert({
+      bezeichnung: form.name.trim(),
+      kategorie: form.kategorie.trim() || 'Sonstiges',
+      lieferant_id: form.lieferant_id,
+      einheit: 'Stück',
+      letzter_preis: parseFloat(form.preis),
+      mindestbestand: 0,
+      kein_mindestbestand: true,
+    }).select('id').single()
+
+    if (artikel.data) {
+      const bestellung = await supabase.from('bestellungen').insert({
+        lieferant_id: form.lieferant_id,
+        status: 'offen',
+      }).select('id').single()
+
+      if (bestellung.data) {
+        await supabase.from('bestellpositionen').insert({
+          bestellung_id: bestellung.data.id,
+          artikel_id: artikel.data.id,
+          menge: form.menge,
+          einheit: 'Stück',
+          preis_pro_einheit: parseFloat(form.preis),
+        })
+      }
+    }
+
+    setSaving(false)
+    onDone()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ padding: '24px 28px' }}>
+          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Neuer Artikel</h2>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Artikel-Name *</label>
+            <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+              placeholder="z.B. Wundpflaster Spezial" autoFocus
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+          </div>
+
+          <div>
+            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Kategorie</label>
+            <input type="text" value={form.kategorie} onChange={e => setForm({ ...form, kategorie: e.target.value })}
+              placeholder="z.B. Verbandsmaterial"
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+          </div>
+
+          <div>
+            <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Lieferant *</label>
+            <select value={form.lieferant_id} onChange={e => setForm({ ...form, lieferant_id: e.target.value })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }}>
+              <option value="">– Lieferant auswählen –</option>
+              {lieferanten.map(l => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Preis (€) *</label>
+              <input type="number" step="0.01" min="0" value={form.preis} onChange={e => setForm({ ...form, preis: e.target.value })}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80', display: 'block', marginBottom: '6px' }}>Menge</label>
+              <input type="number" min="1" value={form.menge} onChange={e => setForm({ ...form, menge: Math.max(1, parseInt(e.target.value) || 1) })}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1e0db', background: '#fff', color: '#3d675e', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, flex: 1 }}>
+            Abbrechen
+          </button>
+          <button onClick={hinzufuegen} disabled={!form.name.trim() || !form.lieferant_id || !form.preis || saving} style={{ ...btn(true, !form.name.trim() || !form.lieferant_id || !form.preis || saving), flex: 1 }}>
+            {saving ? '…' : 'Hinzufügen'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
