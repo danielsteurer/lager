@@ -402,6 +402,8 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
   }
 
   const editierbar = bestellung.status === 'offen'
+  const einzelpreis = positionen[0]?.preis_pro_einheit || 0
+  const gesamtsumme = positionen.reduce((sum, p) => sum + (p.preis_pro_einheit || 0) * (p.menge || 1), 0)
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', overflow: 'hidden' }}>
@@ -411,7 +413,7 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
             {positionen.length > 0 ? positionen[0].artikel?.bezeichnung : 'Artikel nicht gefunden'}
           </p>
           <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '4px 0 0' }}>
-            Lieferant: {bestellung.lieferanten?.name || 'Unbekannt'} • Preis: €{positionen.reduce((sum, p) => sum + (p.preis_pro_einheit || 0) * (p.menge || 1), 0).toFixed(2)}
+            Lieferant: {bestellung.lieferanten?.name || 'Unbekannt'} • Einzelpreis: €{einzelpreis.toFixed(2)}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -461,7 +463,10 @@ function BestellungCard({ bestellung, onStatusChange, onDelete, isGeliefert }) {
                     )}
                   </div>
                 </td>
-                <td style={{ padding: '8px 0', color: '#8aada5', textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap' }}>€{((p.preis_pro_einheit || 0) * (p.menge || 1)).toFixed(2)}</td>
+                <td style={{ padding: '8px 0', color: '#3d675e', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap', fontFamily: "'Geist Mono', monospace", fontWeight: 600, fontSize: '14px' }}>
+                  <span style={{ color: '#8aada5', fontWeight: 400, fontSize: '11px', marginRight: '6px' }}>Gesamt</span>
+                  €{((p.preis_pro_einheit || 0) * (p.menge || 1)).toFixed(2)}
+                </td>
               </tr>
               )
             })}
