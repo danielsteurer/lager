@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { useUndo } from '../lib/UndoContext'
 import BuchungModal from '../components/BuchungModal'
 import BestelllisteModal from '../components/BestelllisteModal'
 import ArtikelFormModal from '../components/ArtikelFormModal'
@@ -84,8 +85,10 @@ export default function Artikel() {
   const [hoverRowId, setHoverRowId] = useState(null)
   const [sortierungMeldung, setSortierungMeldung] = useState(null)
 
+  const { push } = useUndo()
+
   function laden() {
-    supabase.from('artikel_bestand').select('*').order('kategorie')
+    supabase.from('artikel_bestand').select('*').is('deleted_at', null).order('kategorie')
       .then(({ data, error }) => {
         if (error) console.error(error)
         else setArtikel(data ?? [])
@@ -103,6 +106,16 @@ export default function Artikel() {
       })
   }
   useEffect(() => { laden() }, [])
+
+  async function artikelLoeschen(a) {
+    if (!confirm(`„${a.bezeichnung}" in den Papierkorb verschieben?`)) return
+    await supabase.from('artikel').update({ deleted_at: new Date().toISOString() }).eq('id', a.id)
+    push({ label: `„${a.bezeichnung}" gelöscht`, undo: async () => {
+      await supabase.from('artikel').update({ deleted_at: null }).eq('id', a.id)
+      laden()
+    }})
+    laden()
+  }
 
   const kategorien = useMemo(() => {
     const set = new Set(artikel.map(a => a.kategorie).filter(Boolean))
@@ -402,7 +415,9 @@ export default function Artikel() {
                           <button onClick={() => setBuchungModal({ artikel: a, modus: 'umbuchung' })} title="Lager → Behandlungsraum"
                             style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1e0db', background: '#fff', color: '#3d675e', cursor: 'pointer', marginRight: '4px' }}>⇄</button>
                           <button onClick={() => setBuchungModal({ artikel: a, modus: 'wareneingang' })} title="Wareneingang buchen"
-                            style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: '1px solid #9ad89e', background: '#fff', color: '#2d6e3e', cursor: 'pointer' }}>+</button>
+                            style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: '1px solid #9ad89e', background: '#fff', color: '#2d6e3e', cursor: 'pointer', marginRight: '4px' }}>+</button>
+                          <button onClick={() => artikelLoeschen(a)} title="Artikel löschen"
+                            style={{ fontSize: '13px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#fff', color: '#991b1b', cursor: 'pointer' }}>🗑</button>
                         </td>
                       </tr>
                     ))}
