@@ -319,7 +319,7 @@ export default function Artikel() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #f0f5f4' }}>
                       <th style={{ padding: '8px 16px', width: '36px' }} />
-                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Preis', 'Status', ''].map((h, idx) => (
+                      {['Bezeichnung', 'Spezifikation', 'Lieferant', 'Lager', 'BZ', 'Gesamt Stk', 'Mindest', 'Verfall', 'Einzelpreis', 'Status', ''].map((h, idx) => (
                         <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 400, color: '#8aada5', letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: idx === 3 ? '120px' : idx === 4 ? '100px' : idx === 9 ? '110px' : 'auto', maxWidth: idx === 1 || idx === 2 ? '110px' : 'none' }}>{h}</th>
                       ))}
                     </tr>
