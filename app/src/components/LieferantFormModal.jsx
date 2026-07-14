@@ -63,10 +63,6 @@ export default function LieferantFormModal({ lieferant, onClose, onDone }) {
     }
   }
 
-  useEffect(() => {
-    ladenLieferanten()
-  }, [])
-
   async function speichern() {
     const err = {}
     if (!form.name.trim()) err.name = 'Pflichtfeld'
