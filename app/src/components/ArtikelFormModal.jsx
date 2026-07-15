@@ -316,7 +316,6 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
   }
 
   async function speichern() {
-    console.log('speichern() aufgerufen')
     const err = {}
     if (!form.bezeichnung.trim()) err.bezeichnung = 'Pflichtfeld'
     if (!form.kategorie) err.kategorie = 'Bitte eine Kategorie wählen oder neu anlegen'
@@ -324,9 +323,17 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
     const einheit = buildEinheit(einheitTyp, einheitAnzahl)
     if (einheitTyp === 'packung' && !einheitAnzahl) err.einheit = 'Bitte Anzahl pro Packung eingeben'
     if (einheitTyp === 'sonstiges' && !einheitAnzahl.trim()) err.einheit = 'Bitte Einheit eingeben'
-    if (Object.keys(err).length) { console.log('Validierungsfehler:', err); setFehler(err); return }
+    if (Object.keys(err).length) {
+      err.submit = 'Bitte Pflichtfelder ausfüllen: ' + [
+        err.bezeichnung && 'Bezeichnung',
+        err.kategorie && 'Kategorie',
+        err.lieferant_id && 'Lieferant',
+        err.einheit && 'Einheit',
+      ].filter(Boolean).join(', ')
+      setFehler(err)
+      return
+    }
     setSaving(true)
-    console.log('Speichern gestartet mit Daten:', { isNeu, ...form })
 
     const data = {
       bezeichnung: form.bezeichnung.trim(),
@@ -347,17 +354,23 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
     }
 
     if (isNeu) {
-      const result = await supabase.from('artikel').insert(data)
-      console.log('Insert result:', result)
-      if (result.error) { console.error('Insert error:', result.error); setFehler({ submit: result.error.message }); setSaving(false); return }
+      const result = await supabase.from('artikel').insert(data).select('id').single()
+      if (result.error) { setFehler({ submit: result.error.message }); setSaving(false); return }
+      // Anfangsbestand als Chargen anlegen
+      const neueId = result.data.id
+      const startLager = parseFloat(bestandInput.lager) || 0
+      const startBz = parseFloat(bestandInput.bz) || 0
+      if (startLager > 0) {
+        await supabase.from('chargen').insert({ artikel_id: neueId, menge: startLager, lagerort: 'lager', charge_nr: null, verfallsdatum: null })
+      }
+      if (startBz > 0) {
+        await supabase.from('chargen').insert({ artikel_id: neueId, menge: startBz, lagerort: 'behandlungsraum', charge_nr: null, verfallsdatum: null })
+      }
     } else {
-      console.log('Update mit ID:', artikel.id, 'Daten:', data)
       const result = await supabase.from('artikel').update(data).eq('id', artikel.id)
-      console.log('Update result:', result)
-      if (result.error) { console.error('Update error:', result.error); setFehler({ submit: result.error.message }); setSaving(false); return }
+      if (result.error) { setFehler({ submit: result.error.message }); setSaving(false); return }
     }
     setSaving(false)
-    console.log('onDone() aufgerufen')
     onDone()
   }
 
@@ -511,6 +524,39 @@ export default function ArtikelFormModal({ artikel, onClose, onDone }) {
                   onChange={e => set('letzter_preis', e.target.value)} placeholder="z.B. 5.39" style={inp(false)} />
               </div>
             </div>
+
+            {/* Anfangsbestand (nur beim Anlegen) */}
+            {isNeu && (() => {
+              const spE = stueckProEinheit(einheitVorschau)
+              const lagerStueck = spE ? Math.round(parseFloat(bestandInput.lager || 0) * spE) : null
+              const bzStueck = spE ? Math.round(parseFloat(bestandInput.bz || 0) * spE) : null
+              return (
+                <div style={{ background: '#f0f5f4', borderRadius: '10px', padding: '14px', border: '1px solid #d1e0db' }}>
+                  <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Anfangsbestand (optional)</p>
+                  <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 12px' }}>Wie viel ist aktuell schon vorhanden? Kann später jederzeit geändert werden.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Lager</p>
+                      <input type="number" min="0" step="0.5" value={bestandInput.lager}
+                        onChange={e => setBestandInput(b => ({ ...b, lager: e.target.value }))}
+                        placeholder="0" style={inp(false)} />
+                      {lagerStueck !== null && bestandInput.lager && (
+                        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0' }}>= {lagerStueck} Stück</p>
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '0 0 4px' }}>Behandlungsraum</p>
+                      <input type="number" min="0" step="0.5" value={bestandInput.bz}
+                        onChange={e => setBestandInput(b => ({ ...b, bz: e.target.value }))}
+                        placeholder="0" style={inp(false)} />
+                      {bzStueck !== null && bestandInput.bz && (
+                        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0' }}>= {bzStueck} Stück</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Bestand Eingabe */}
             {!isNeu && (() => {
