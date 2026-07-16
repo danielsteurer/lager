@@ -30,6 +30,14 @@ const ANTEIL_BUTTONS = [
   { label: '⅔', wert: 66.6667 },
 ]
 
+const MWST_BUTTONS = [20, 13, 10, 0]
+
+function mwstProz(x) { return x.mwst_prozent != null ? x.mwst_prozent : 20 }
+// Netto = Brutto / (1 + MwSt)
+function nettoVonBrutto(brutto, mwst) { return brutto / (1 + (mwst || 0) / 100) }
+// Netto-Anteil (monatlich) einer Einnahme
+function nettoMonatlich(p) { return nettoVonBrutto(anteilMonatlich(p), mwstProz(p)) }
+
 // Fitness-Abo-Klassen: Laufzeit in Monaten + Preis pro Monat (inkl. MwSt)
 const FITNESS_KLASSEN = {
   1: { label: 'Klasse 1', monate: 3, preis: 79 },
@@ -56,6 +64,8 @@ function aboMonatlich(a) {
   const anteil = a.anteil_prozent != null ? a.anteil_prozent : 100
   return aboAktiv(a) ? aboVollMonatlich(a) * (anteil / 100) : 0
 }
+// Netto-Anteil (monatlich) eines Abos
+function aboNettoMonatlich(a) { return nettoVonBrutto(aboMonatlich(a), mwstProz(a)) }
 
 const euro = (n) => '€' + n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -135,11 +145,14 @@ export default function Finanzen() {
 
   const einnahmen = posten.filter(p => p.typ === 'einnahme')
   const ausgaben = posten.filter(p => p.typ === 'ausgabe')
-  const aboMon = abos.reduce((s, a) => s + aboMonatlich(a), 0)
-  const einnahmenMon = einnahmen.reduce((s, p) => s + anteilMonatlich(p), 0) + aboMon
+  // Einnahmen: brutto (dein Anteil) + netto (nach MwSt-Abfuhr)
+  const einnahmenBruttoMon = einnahmen.reduce((s, p) => s + anteilMonatlich(p), 0) + abos.reduce((s, a) => s + aboMonatlich(a), 0)
+  const einnahmenNettoMon = einnahmen.reduce((s, p) => s + nettoMonatlich(p), 0) + abos.reduce((s, a) => s + aboNettoMonatlich(a), 0)
+  const mwstAbzufuehrenMon = einnahmenBruttoMon - einnahmenNettoMon
+  // Ausgaben: brutto = echte Kosten (unecht steuerbefreit, keine Vorsteuer-Rückholung)
   const ausgabenMonVoll = ausgaben.reduce((s, p) => s + monatlichBetrag(p), 0)
-  const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil
-  const ergebnisMon = einnahmenMon - ausgabenMon
+  const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil, brutto
+  const ergebnisMon = einnahmenNettoMon - ausgabenMon
 
   // Fitness-Abos nach Klasse gruppieren
   const aboGruppen = { 1: [], 2: [], 3: [] }
@@ -165,15 +178,15 @@ export default function Finanzen() {
 
       {/* Übersichts-Karten */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '28px' }}>
-        <SummaryCard label="Einnahmen / Monat" wert={euro(einnahmenMon)} farbe="#166534" bg="#f0fdf4" border="#bbf7d0" sub={euro(einnahmenMon * 12) + ' / Jahr'} />
-        <SummaryCard label="Deine Ausgaben / Monat" wert={euro(ausgabenMon)} farbe="#991b1b" bg="#fef2f2" border="#fecaca" sub={'von ' + euro(ausgabenMonVoll) + ' gesamt (100 %)'} />
+        <SummaryCard label="Einnahmen netto / Monat" wert={euro(einnahmenNettoMon)} farbe="#166534" bg="#f0fdf4" border="#bbf7d0" sub={'brutto ' + euro(einnahmenBruttoMon) + ' · MwSt ' + euro(mwstAbzufuehrenMon) + ' abführen'} />
+        <SummaryCard label="Deine Ausgaben / Monat" wert={euro(ausgabenMon)} farbe="#991b1b" bg="#fef2f2" border="#fecaca" sub={'brutto · von ' + euro(ausgabenMonVoll) + ' gesamt'} />
         <SummaryCard
           label="Ergebnis / Monat"
           wert={(ergebnisMon >= 0 ? '+' : '−') + euro(Math.abs(ergebnisMon)).slice(1)}
           farbe={ergebnisMon >= 0 ? '#166534' : '#991b1b'}
           bg={ergebnisMon >= 0 ? '#f0fdf4' : '#fef2f2'}
           border={ergebnisMon >= 0 ? '#bbf7d0' : '#fecaca'}
-          sub={(ergebnisMon >= 0 ? '+' : '−') + euro(Math.abs(ergebnisMon * 12)).slice(1) + ' / Jahr'}
+          sub={'netto − Ausgaben · ' + (ergebnisMon >= 0 ? '+' : '−') + euro(Math.abs(ergebnisMon * 12)).slice(1) + ' / Jahr'}
         />
       </div>
 
@@ -184,7 +197,7 @@ export default function Finanzen() {
       </div>
 
       {/* Einnahmen */}
-      <Abschnitt titel="Einnahmen" akzent="#166534" summe={euro(einnahmenMon) + ' / Monat'}>
+      <Abschnitt titel="Einnahmen" akzent="#166534" summe={'netto ' + euro(einnahmenNettoMon) + ' / Monat'}>
         {/* Fitness-Abos nach Klasse */}
         {[1, 2, 3].map(kl => {
           const liste = aboGruppen[kl]
@@ -302,6 +315,7 @@ function FitnessAboModal({ abo, onClose, onDone }) {
   const [anzahl, setAnzahl] = useState(abo?.anzahl ?? 1)
   const [startdatum, setStartdatum] = useState(abo?.startdatum ?? new Date().toISOString().split('T')[0])
   const [anteil, setAnteil] = useState(abo?.anteil_prozent != null ? abo.anteil_prozent : 100)
+  const [mwst, setMwst] = useState(abo?.mwst_prozent != null ? abo.mwst_prozent : 20)
   const [notiz, setNotiz] = useState(abo?.notiz ?? '')
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState(null)
@@ -309,12 +323,14 @@ function FitnessAboModal({ abo, onClose, onDone }) {
   const def = FITNESS_KLASSEN[klasse]
   const gueltig = anzahl >= 1 && startdatum
   const anteilFaktor = (parseFloat(anteil) || 100) / 100
+  const bruttoAnteil = anzahl * def.preis * anteilFaktor
+  const nettoAnteil = nettoVonBrutto(bruttoAnteil, parseFloat(mwst) || 0)
 
   async function speichern() {
     if (!gueltig) return
     setSaving(true)
     setFehler(null)
-    const data = { klasse: parseInt(klasse), anzahl: parseInt(anzahl), startdatum, anteil_prozent: parseFloat(anteil) || 100, notiz: notiz.trim() || null }
+    const data = { klasse: parseInt(klasse), anzahl: parseInt(anzahl), startdatum, anteil_prozent: parseFloat(anteil) || 100, mwst_prozent: parseFloat(mwst) || 0, notiz: notiz.trim() || null }
     const result = isNeu
       ? await supabase.from('fitnessabos').insert(data)
       : await supabase.from('fitnessabos').update(data).eq('id', abo.id)
@@ -390,10 +406,32 @@ function FitnessAboModal({ abo, onClose, onDone }) {
             </div>
           </div>
 
+          {/* MwSt */}
+          <div>
+            <label style={lbl}>MwSt (im Preis enthalten)</label>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {MWST_BUTTONS.map(m => {
+                const aktiv = Math.abs((parseFloat(mwst) || 0) - m) < 0.01
+                return (
+                  <button key={m} type="button" onClick={() => setMwst(m)}
+                    style={{ padding: '7px 16px', borderRadius: '8px', border: `1px solid ${aktiv ? '#3d675e' : '#d1e0db'}`, background: aktiv ? '#f0f5f4' : '#fff', color: aktiv ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: aktiv ? 600 : 400, cursor: 'pointer' }}>
+                    {m} %
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="number" step="0.1" min="0" max="100" value={mwst} onChange={e => setMwst(e.target.value)} style={{ ...inp, width: '120px' }} />
+              <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5' }}>%</span>
+            </div>
+          </div>
+
           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px' }}>
             <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#166534', margin: 0 }}>
-              Dein Anteil / Monat: <strong>{euro(anzahl * def.preis * anteilFaktor)}</strong>
-              {anteilFaktor < 1 && <span style={{ color: '#5a8a80', fontWeight: 400 }}> (von {euro(anzahl * def.preis)} gesamt)</span>}
+              Netto (dein Anteil) / Monat: <strong>{euro(nettoAnteil)}</strong>
+            </p>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#5a8a80', margin: '4px 0 0' }}>
+              brutto {euro(bruttoAnteil)}{anteilFaktor < 1 && <> (von {euro(anzahl * def.preis)} gesamt)</>} · MwSt abzuführen {euro(bruttoAnteil - nettoAnteil)}
             </p>
             <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#5a8a80', margin: '4px 0 0' }}>
               {anzahl}× {euro(def.preis)} · Laufzeit {def.monate} Monate
@@ -514,6 +552,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
     betrag: posten?.betrag ?? '',
     intervall: posten?.intervall ?? 'monatlich',
     anteil: posten?.anteil_prozent != null ? posten.anteil_prozent : 100,
+    mwst: posten?.mwst_prozent != null ? posten.mwst_prozent : 20,
     naechste_zahlung: posten?.naechste_zahlung ?? '',
     vertragsnr: posten?.vertragsnr ?? '',
     notiz: posten?.notiz ?? '',
@@ -537,6 +576,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
       betrag: parseFloat(form.betrag),
       intervall: form.intervall,
       anteil_prozent: parseFloat(form.anteil) || 100,
+      mwst_prozent: parseFloat(form.mwst) || 0,
       naechste_zahlung: form.naechste_zahlung || null,
       vertragsnr: form.vertragsnr.trim() || null,
       notiz: form.notiz.trim() || null,
@@ -630,6 +670,43 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
                   </span>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* MwSt – nur bei Einnahmen (Brutto → Netto) */}
+          {aktTyp === 'einnahme' && (
+            <div>
+              <label style={lbl}>MwSt (im Betrag enthalten)</label>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {MWST_BUTTONS.map(m => {
+                  const aktiv = Math.abs(parseFloat(form.mwst) - m) < 0.01
+                  return (
+                    <button key={m} type="button" onClick={() => set('mwst', m)}
+                      style={{ padding: '7px 16px', borderRadius: '8px', border: `1px solid ${aktiv ? '#3d675e' : '#d1e0db'}`, background: aktiv ? '#f0f5f4' : '#fff', color: aktiv ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: aktiv ? 600 : 400, cursor: 'pointer' }}>
+                      {m} %
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input type="number" step="0.1" min="0" max="100" value={form.mwst}
+                  onChange={e => set('mwst', e.target.value)} style={{ ...inp, width: '120px' }} />
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5' }}>%</span>
+              </div>
+              {form.betrag && (() => {
+                const bruttoAnteil = parseFloat(form.betrag || 0) * (INTERVALLE.find(i => i.key === form.intervall)?.faktor ?? 1) * ((parseFloat(form.anteil) || 100) / 100)
+                const netto = nettoVonBrutto(bruttoAnteil, parseFloat(form.mwst) || 0)
+                return (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', marginTop: '8px' }}>
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#166534', margin: 0 }}>
+                      Netto (dein Anteil): <strong>{euro(netto)}</strong> / Monat
+                    </p>
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', margin: '3px 0 0' }}>
+                      MwSt abzuführen: {euro(bruttoAnteil - netto)} / Monat
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
           )}
 
