@@ -17,6 +17,29 @@ function monatlichBetrag(p) {
   return (p.betrag || 0) * f
 }
 
+// Fitness-Abo-Klassen: Laufzeit in Monaten + Preis pro Monat (inkl. MwSt)
+const FITNESS_KLASSEN = {
+  1: { label: 'Klasse 1', monate: 3, preis: 79 },
+  2: { label: 'Klasse 2', monate: 6, preis: 74 },
+  3: { label: 'Klasse 3', monate: 12, preis: 69 },
+}
+
+function aboEnde(a) {
+  const monate = FITNESS_KLASSEN[a.klasse]?.monate ?? 0
+  const d = new Date(a.startdatum)
+  d.setMonth(d.getMonth() + monate)
+  return d
+}
+function aboAktiv(a) {
+  const now = new Date()
+  const start = new Date(a.startdatum)
+  return start <= now && now < aboEnde(a)
+}
+function aboMonatlich(a) {
+  const preis = FITNESS_KLASSEN[a.klasse]?.preis ?? 0
+  return aboAktiv(a) ? (a.anzahl || 0) * preis : 0
+}
+
 const euro = (n) => '€' + n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const inp = {
@@ -38,14 +61,20 @@ export default function Finanzen() {
   const [pwFehler, setPwFehler] = useState(false)
 
   const [posten, setPosten] = useState([])
+  const [abos, setAbos] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // { typ } für neu, oder posten-Objekt zum Bearbeiten
+  const [aboModal, setAboModal] = useState(null) // true für neu, oder abo-Objekt zum Bearbeiten
 
   useEffect(() => { if (entsperrt) laden() }, [entsperrt])
 
   async function laden() {
-    const { data } = await supabase.from('finanzposten').select('*').order('created_at', { ascending: false })
-    setPosten(data ?? [])
+    const [{ data: fp }, { data: fa }] = await Promise.all([
+      supabase.from('finanzposten').select('*').order('created_at', { ascending: false }),
+      supabase.from('fitnessabos').select('*').order('startdatum', { ascending: false }),
+    ])
+    setPosten(fp ?? [])
+    setAbos(fa ?? [])
     setLoading(false)
   }
 
@@ -89,9 +118,14 @@ export default function Finanzen() {
 
   const einnahmen = posten.filter(p => p.typ === 'einnahme')
   const ausgaben = posten.filter(p => p.typ === 'ausgabe')
-  const einnahmenMon = einnahmen.reduce((s, p) => s + monatlichBetrag(p), 0)
+  const aboMon = abos.reduce((s, a) => s + aboMonatlich(a), 0)
+  const einnahmenMon = einnahmen.reduce((s, p) => s + monatlichBetrag(p), 0) + aboMon
   const ausgabenMon = ausgaben.reduce((s, p) => s + monatlichBetrag(p), 0)
   const ergebnisMon = einnahmenMon - ausgabenMon
+
+  // Fitness-Abos nach Klasse gruppieren
+  const aboGruppen = { 1: [], 2: [], 3: [] }
+  abos.forEach(a => { if (aboGruppen[a.klasse]) aboGruppen[a.klasse].push(a) })
 
   // Ausgaben nach Kategorie gruppieren
   const ausgabenGruppen = {}
@@ -125,16 +159,44 @@ export default function Finanzen() {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <button onClick={() => setModal({ typ: 'ausgabe' })} style={btn(true, false)}>+ Ausgabe</button>
-        <button onClick={() => setModal({ typ: 'einnahme' })} style={{ ...btn(false, false), borderColor: '#9ad89e', color: '#166534' }}>+ Einnahme</button>
+        <button onClick={() => setAboModal(true)} style={{ ...btn(false, false), borderColor: '#9ad89e', color: '#166534' }}>+ Fitnessabo</button>
+        <button onClick={() => setModal({ typ: 'einnahme' })} style={{ ...btn(false, false), borderColor: '#9ad89e', color: '#166534' }}>+ Sonstige Einnahme</button>
       </div>
 
       {/* Einnahmen */}
       <Abschnitt titel="Einnahmen" akzent="#166534" summe={euro(einnahmenMon) + ' / Monat'}>
-        {einnahmen.length === 0
-          ? <LeerHinweis text="Noch keine Einnahmen erfasst" />
-          : einnahmen.map(p => <PostenZeile key={p.id} p={p} onEdit={() => setModal(p)} onDelete={laden} />)}
+        {/* Fitness-Abos nach Klasse */}
+        {[1, 2, 3].map(kl => {
+          const liste = aboGruppen[kl]
+          const def = FITNESS_KLASSEN[kl]
+          const aktivAnzahl = liste.filter(aboAktiv).reduce((s, a) => s + (a.anzahl || 0), 0)
+          const klSumme = liste.reduce((s, a) => s + aboMonatlich(a), 0)
+          return (
+            <div key={kl} style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 4px' }}>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#5a8a80', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  {def.label} · {def.monate} Monate · {euro(def.preis)}/Mon · {aktivAnzahl} aktiv
+                </span>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#166534', fontWeight: 600 }}>{euro(klSumme)} / Monat</span>
+              </div>
+              {liste.length === 0
+                ? <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#c8d4d0', margin: '0 0 0 4px' }}>Noch keine Abos in dieser Klasse</p>
+                : liste.map(a => <AboZeile key={a.id} a={a} onEdit={() => setAboModal(a)} onDelete={laden} />)}
+            </div>
+          )
+        })}
+
+        {/* Sonstige Einnahmen */}
+        {einnahmen.length > 0 && (
+          <div style={{ marginTop: '4px' }}>
+            <div style={{ padding: '6px 4px' }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#5a8a80', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Sonstige Einnahmen</span>
+            </div>
+            {einnahmen.map(p => <PostenZeile key={p.id} p={p} onEdit={() => setModal(p)} onDelete={laden} />)}
+          </div>
+        )}
       </Abschnitt>
 
       {/* Ausgaben nach Kategorie */}
@@ -164,6 +226,144 @@ export default function Finanzen() {
           onDone={() => { setModal(null); laden() }}
         />
       )}
+      {aboModal && (
+        <FitnessAboModal
+          abo={aboModal.id ? aboModal : null}
+          onClose={() => setAboModal(null)}
+          onDone={() => { setAboModal(null); laden() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function AboZeile({ a, onEdit, onDelete }) {
+  async function loeschen() {
+    if (!confirm('Dieses Abo wirklich löschen?')) return
+    await supabase.from('fitnessabos').delete().eq('id', a.id)
+    onDelete()
+  }
+  const def = FITNESS_KLASSEN[a.klasse]
+  const aktiv = aboAktiv(a)
+  const ende = aboEnde(a)
+  const zukunft = new Date(a.startdatum) > new Date()
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', opacity: aktiv ? 1 : 0.6 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, color: '#1a2e2a', margin: 0 }}>
+          {a.anzahl}× {def.label}
+          <span style={{ marginLeft: '8px', fontFamily: "'Geist Mono', monospace", fontSize: '10px', padding: '2px 7px', borderRadius: '10px', background: aktiv ? '#dcfce7' : zukunft ? '#fef9c3' : '#f0f0f0', color: aktiv ? '#166534' : zukunft ? '#854d0e' : '#8aada5' }}>
+            {aktiv ? 'aktiv' : zukunft ? 'startet später' : 'beendet'}
+          </span>
+        </p>
+        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '3px 0 0' }}>
+          Start: {new Date(a.startdatum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })} · Ende: {ende.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          {a.notiz && <> · {a.notiz}</>}
+        </p>
+      </div>
+      <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: aktiv ? '#166534' : '#8aada5', margin: 0 }}>{euro((a.anzahl || 0) * def.preis)}</p>
+        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>/ Monat</p>
+      </div>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={onEdit} title="Bearbeiten" style={{ ...btn(false, false), padding: '6px 10px' }}>✎</button>
+        <button onClick={loeschen} title="Löschen" style={{ ...btn(false, false), padding: '6px 10px', borderColor: '#fca5a5', color: '#991b1b' }}>🗑</button>
+      </div>
+    </div>
+  )
+}
+
+function FitnessAboModal({ abo, onClose, onDone }) {
+  const isNeu = !abo
+  const [klasse, setKlasse] = useState(abo?.klasse ?? 1)
+  const [anzahl, setAnzahl] = useState(abo?.anzahl ?? 1)
+  const [startdatum, setStartdatum] = useState(abo?.startdatum ?? new Date().toISOString().split('T')[0])
+  const [notiz, setNotiz] = useState(abo?.notiz ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const def = FITNESS_KLASSEN[klasse]
+  const gueltig = anzahl >= 1 && startdatum
+
+  async function speichern() {
+    if (!gueltig) return
+    setSaving(true)
+    const data = { klasse: parseInt(klasse), anzahl: parseInt(anzahl), startdatum, notiz: notiz.trim() || null }
+    if (isNeu) await supabase.from('fitnessabos').insert(data)
+    else await supabase.from('fitnessabos').update(data).eq('id', abo.id)
+    setSaving(false)
+    onDone()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '480px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ padding: '24px 28px 16px' }}>
+          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#166534', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>{isNeu ? 'Neues Fitnessabo' : 'Fitnessabo bearbeiten'}</p>
+          <h2 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 400, fontSize: '20px', color: '#1a2e2a', margin: 0 }}>Fitnessabo</h2>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '0 28px', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Klasse */}
+          <div>
+            <label style={lbl}>Abo-Klasse</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[1, 2, 3].map(kl => {
+                const d = FITNESS_KLASSEN[kl]
+                const aktiv = klasse == kl
+                return (
+                  <button key={kl} type="button" onClick={() => setKlasse(kl)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: '10px', border: `1px solid ${aktiv ? '#166534' : '#d1e0db'}`, background: aktiv ? '#f0fdf4' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                    <div>
+                      <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, color: aktiv ? '#166534' : '#1a2e2a' }}>{d.label}</span>
+                      <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', marginLeft: '8px' }}>{d.monate} Monate Laufzeit</span>
+                    </div>
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '14px', fontWeight: 600, color: aktiv ? '#166534' : '#5a8a80' }}>{euro(d.preis)}/Mon</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={lbl}>Anzahl</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => setAnzahl(Math.max(1, anzahl - 1))} style={{ padding: '8px 12px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>−</button>
+                <input type="number" min="1" value={anzahl} onChange={e => setAnzahl(Math.max(1, parseInt(e.target.value) || 1))}
+                  style={{ ...inp, textAlign: 'center' }} />
+                <button onClick={() => setAnzahl(anzahl + 1)} style={{ padding: '8px 12px', border: '1px solid #d1e0db', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}>+</button>
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>Startdatum *</label>
+              <input type="date" value={startdatum} onChange={e => setStartdatum(e.target.value)} style={inp} />
+            </div>
+          </div>
+
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px' }}>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#166534', margin: 0 }}>
+              Monatliche Einnahme: <strong>{euro(anzahl * def.preis)}</strong>
+            </p>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#5a8a80', margin: '4px 0 0' }}>
+              {anzahl}× {euro(def.preis)} · Laufzeit {def.monate} Monate
+              {startdatum && <> · bis {(() => { const d = new Date(startdatum); d.setMonth(d.getMonth() + def.monate); return d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) })()}</>}
+            </p>
+          </div>
+
+          <div>
+            <label style={lbl}>Notiz (optional)</label>
+            <input value={notiz} onChange={e => setNotiz(e.target.value)} placeholder="z.B. Firmenkunde" style={inp} />
+          </div>
+        </div>
+
+        <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
+          <button onClick={onClose} style={{ ...btn(false, false), flex: 1, padding: '10px' }}>Abbrechen</button>
+          <button onClick={speichern} disabled={!gueltig || saving} style={{ ...btn(true, !gueltig || saving), flex: 1, padding: '10px' }}>
+            {saving ? '…' : isNeu ? 'Hinzufügen' : 'Speichern'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
