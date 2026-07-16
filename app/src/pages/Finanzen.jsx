@@ -17,6 +17,19 @@ function monatlichBetrag(p) {
   return (p.betrag || 0) * f
 }
 
+// Dein Anteil an einer Ausgabe (monatlich)
+function anteilMonatlich(p) {
+  const anteil = p.anteil_prozent != null ? p.anteil_prozent : 100
+  return monatlichBetrag(p) * (anteil / 100)
+}
+
+const ANTEIL_BUTTONS = [
+  { label: '100 %', wert: 100 },
+  { label: '½', wert: 50 },
+  { label: '⅓', wert: 33.3333 },
+  { label: '⅔', wert: 66.6667 },
+]
+
 // Fitness-Abo-Klassen: Laufzeit in Monaten + Preis pro Monat (inkl. MwSt)
 const FITNESS_KLASSEN = {
   1: { label: 'Klasse 1', monate: 3, preis: 79 },
@@ -120,7 +133,8 @@ export default function Finanzen() {
   const ausgaben = posten.filter(p => p.typ === 'ausgabe')
   const aboMon = abos.reduce((s, a) => s + aboMonatlich(a), 0)
   const einnahmenMon = einnahmen.reduce((s, p) => s + monatlichBetrag(p), 0) + aboMon
-  const ausgabenMon = ausgaben.reduce((s, p) => s + monatlichBetrag(p), 0)
+  const ausgabenMonVoll = ausgaben.reduce((s, p) => s + monatlichBetrag(p), 0)
+  const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil
   const ergebnisMon = einnahmenMon - ausgabenMon
 
   // Fitness-Abos nach Klasse gruppieren
@@ -148,7 +162,7 @@ export default function Finanzen() {
       {/* Übersichts-Karten */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '28px' }}>
         <SummaryCard label="Einnahmen / Monat" wert={euro(einnahmenMon)} farbe="#166534" bg="#f0fdf4" border="#bbf7d0" sub={euro(einnahmenMon * 12) + ' / Jahr'} />
-        <SummaryCard label="Ausgaben / Monat" wert={euro(ausgabenMon)} farbe="#991b1b" bg="#fef2f2" border="#fecaca" sub={euro(ausgabenMon * 12) + ' / Jahr'} />
+        <SummaryCard label="Deine Ausgaben / Monat" wert={euro(ausgabenMon)} farbe="#991b1b" bg="#fef2f2" border="#fecaca" sub={'von ' + euro(ausgabenMonVoll) + ' gesamt (100 %)'} />
         <SummaryCard
           label="Ergebnis / Monat"
           wert={(ergebnisMon >= 0 ? '+' : '−') + euro(Math.abs(ergebnisMon)).slice(1)}
@@ -201,15 +215,15 @@ export default function Finanzen() {
 
       {/* Ausgaben nach Kategorie */}
       <div style={{ marginTop: '28px' }}>
-        <Abschnitt titel="Ausgaben" akzent="#991b1b" summe={euro(ausgabenMon) + ' / Monat'}>
+        <Abschnitt titel="Ausgaben" akzent="#991b1b" summe={'dein Anteil ' + euro(ausgabenMon) + ' / Monat'}>
           {ausgaben.length === 0 && <LeerHinweis text="Noch keine Ausgaben erfasst" />}
           {Object.entries(ausgabenGruppen).sort(([a], [b]) => a.localeCompare(b)).map(([kat, liste]) => {
-            const katSumme = liste.reduce((s, p) => s + monatlichBetrag(p), 0)
+            const katSumme = liste.reduce((s, p) => s + anteilMonatlich(p), 0)
             return (
               <div key={kat} style={{ marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 4px' }}>
                   <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#5a8a80', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{kat}</span>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>{euro(katSumme)} / Monat</span>
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5' }}>dein Anteil {euro(katSumme)} / Monat</span>
                 </div>
                 {liste.map(p => <PostenZeile key={p.id} p={p} onEdit={() => setModal(p)} onDelete={laden} />)}
               </div>
@@ -408,6 +422,9 @@ function PostenZeile({ p, onEdit, onDelete }) {
     onDelete()
   }
   const mon = monatlichBetrag(p)
+  const anteil = p.anteil_prozent != null ? p.anteil_prozent : 100
+  const anteilMon = anteilMonatlich(p)
+  const geteilt = p.typ === 'ausgabe' && anteil < 100
   const intervallLabel = INTERVALLE.find(i => i.key === p.intervall)?.label || p.intervall
   return (
     <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -416,15 +433,25 @@ function PostenZeile({ p, onEdit, onDelete }) {
         <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '3px 0 0' }}>
           {p.anbieter && <>{p.anbieter} · </>}
           {intervallLabel}
+          {geteilt && <> · dein Anteil {anteil % 1 === 0 ? anteil : anteil.toFixed(1)} %</>}
           {p.naechste_zahlung && <> · nächste: {new Date(p.naechste_zahlung).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</>}
           {p.vertragsnr && <> · Vertr.-Nr. {p.vertragsnr}</>}
         </p>
         {p.notiz && <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '3px 0 0', fontStyle: 'italic' }}>{p.notiz}</p>}
       </div>
       <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: p.typ === 'einnahme' ? '#166534' : '#1a2e2a', margin: 0 }}>{euro(p.betrag || 0)}</p>
-        {p.intervall !== 'monatlich' && (
-          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>= {euro(mon)} / Mon.</p>
+        {geteilt ? (
+          <>
+            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: '#1a2e2a', margin: 0 }}>{euro(anteilMon)}<span style={{ fontSize: '11px', color: '#8aada5', fontWeight: 400 }}> / Mon.</span></p>
+            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>von {euro(mon)} gesamt</p>
+          </>
+        ) : (
+          <>
+            <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: p.typ === 'einnahme' ? '#166534' : '#1a2e2a', margin: 0 }}>{euro(p.betrag || 0)}</p>
+            {p.intervall !== 'monatlich' && (
+              <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>= {euro(mon)} / Mon.</p>
+            )}
+          </>
         )}
       </div>
       <div style={{ display: 'flex', gap: '6px' }}>
@@ -444,6 +471,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
     anbieter: posten?.anbieter ?? '',
     betrag: posten?.betrag ?? '',
     intervall: posten?.intervall ?? 'monatlich',
+    anteil: posten?.anteil_prozent != null ? posten.anteil_prozent : 100,
     naechste_zahlung: posten?.naechste_zahlung ?? '',
     vertragsnr: posten?.vertragsnr ?? '',
     notiz: posten?.notiz ?? '',
@@ -464,6 +492,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
       anbieter: form.anbieter.trim() || null,
       betrag: parseFloat(form.betrag),
       intervall: form.intervall,
+      anteil_prozent: aktTyp === 'ausgabe' ? (parseFloat(form.anteil) || 100) : 100,
       naechste_zahlung: form.naechste_zahlung || null,
       vertragsnr: form.vertragsnr.trim() || null,
       notiz: form.notiz.trim() || null,
@@ -525,6 +554,34 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
             <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#5a8a80', margin: '-6px 0 0' }}>
               = <strong style={{ color: '#3d675e' }}>{euro(parseFloat(form.betrag || 0) * (INTERVALLE.find(i => i.key === form.intervall)?.faktor ?? 1))}</strong> pro Monat
             </p>
+          )}
+
+          {/* Anteil (nur bei Ausgaben) */}
+          {aktTyp === 'ausgabe' && (
+            <div>
+              <label style={lbl}>Dein Anteil</label>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {ANTEIL_BUTTONS.map(b => {
+                  const aktiv = Math.abs(parseFloat(form.anteil) - b.wert) < 0.01
+                  return (
+                    <button key={b.label} type="button" onClick={() => set('anteil', b.wert)}
+                      style={{ padding: '7px 16px', borderRadius: '8px', border: `1px solid ${aktiv ? '#3d675e' : '#d1e0db'}`, background: aktiv ? '#f0f5f4' : '#fff', color: aktiv ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: aktiv ? 600 : 400, cursor: 'pointer' }}>
+                      {b.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input type="number" step="0.01" min="0" max="100" value={form.anteil}
+                  onChange={e => set('anteil', e.target.value)} style={{ ...inp, width: '120px' }} />
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5' }}>%</span>
+                {form.betrag && (
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '13px', color: '#5a8a80', marginLeft: '4px' }}>
+                    = dein Anteil <strong style={{ color: '#3d675e' }}>{euro(parseFloat(form.betrag || 0) * (INTERVALLE.find(i => i.key === form.intervall)?.faktor ?? 1) * ((parseFloat(form.anteil) || 100) / 100))}</strong> / Monat
+                  </span>
+                )}
+              </div>
+            </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
