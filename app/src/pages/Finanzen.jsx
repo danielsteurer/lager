@@ -314,7 +314,7 @@ function FitnessAboModal({ abo, onClose, onDone }) {
   const [klasse, setKlasse] = useState(abo?.klasse ?? 1)
   const [anzahl, setAnzahl] = useState(abo?.anzahl ?? 1)
   const [startdatum, setStartdatum] = useState(abo?.startdatum ?? new Date().toISOString().split('T')[0])
-  const [anteil, setAnteil] = useState(abo?.anteil_prozent != null ? abo.anteil_prozent : 100)
+  const [anteil, setAnteil] = useState(abo?.anteil_prozent != null ? abo.anteil_prozent : 33.3333)
   const [mwst, setMwst] = useState(abo?.mwst_prozent != null ? abo.mwst_prozent : 20)
   const [notiz, setNotiz] = useState(abo?.notiz ?? '')
   const [saving, setSaving] = useState(false)
@@ -673,8 +673,8 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
             </div>
           )}
 
-          {/* MwSt – nur bei Einnahmen (Brutto → Netto) */}
-          {aktTyp === 'einnahme' && (
+          {/* MwSt – Einnahmen & Ausgaben (Brutto → Netto) */}
+          {true && (
             <div>
               <label style={lbl}>MwSt (im Betrag enthalten)</label>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
@@ -696,13 +696,25 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
               {form.betrag && (() => {
                 const bruttoAnteil = parseFloat(form.betrag || 0) * (INTERVALLE.find(i => i.key === form.intervall)?.faktor ?? 1) * ((parseFloat(form.anteil) || 100) / 100)
                 const netto = nettoVonBrutto(bruttoAnteil, parseFloat(form.mwst) || 0)
+                if (aktTyp === 'einnahme') {
+                  return (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', marginTop: '8px' }}>
+                      <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#166534', margin: 0 }}>
+                        Brutto: <strong>{euro(bruttoAnteil)}</strong> · Netto (dein Anteil): <strong>{euro(netto)}</strong> / Monat
+                      </p>
+                      <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', margin: '3px 0 0' }}>
+                        MwSt abzuführen: {euro(bruttoAnteil - netto)} / Monat
+                      </p>
+                    </div>
+                  )
+                }
                 return (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', marginTop: '8px' }}>
-                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#166534', margin: 0 }}>
-                      Netto (dein Anteil): <strong>{euro(netto)}</strong> / Monat
+                  <div style={{ background: '#f7faf9', border: '1px solid #e2ebe8', borderRadius: '8px', padding: '10px 12px', marginTop: '8px' }}>
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#1a2e2a', margin: 0 }}>
+                      Brutto: <strong>{euro(bruttoAnteil)}</strong> · Netto: <strong>{euro(netto)}</strong> / Monat
                     </p>
-                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5a8a80', margin: '3px 0 0' }}>
-                      MwSt abzuführen: {euro(bruttoAnteil - netto)} / Monat
+                    <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '3px 0 0' }}>
+                      enthaltene MwSt: {euro(bruttoAnteil - netto)} · Brutto = echte Kosten (nicht rückholbar)
                     </p>
                   </div>
                 )
