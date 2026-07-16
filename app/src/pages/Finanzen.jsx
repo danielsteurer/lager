@@ -48,9 +48,13 @@ function aboAktiv(a) {
   const start = new Date(a.startdatum)
   return start <= now && now < aboEnde(a)
 }
-function aboMonatlich(a) {
+function aboVollMonatlich(a) {
   const preis = FITNESS_KLASSEN[a.klasse]?.preis ?? 0
-  return aboAktiv(a) ? (a.anzahl || 0) * preis : 0
+  return (a.anzahl || 0) * preis
+}
+function aboMonatlich(a) {
+  const anteil = a.anteil_prozent != null ? a.anteil_prozent : 100
+  return aboAktiv(a) ? aboVollMonatlich(a) * (anteil / 100) : 0
 }
 
 const euro = (n) => '€' + n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -132,7 +136,7 @@ export default function Finanzen() {
   const einnahmen = posten.filter(p => p.typ === 'einnahme')
   const ausgaben = posten.filter(p => p.typ === 'ausgabe')
   const aboMon = abos.reduce((s, a) => s + aboMonatlich(a), 0)
-  const einnahmenMon = einnahmen.reduce((s, p) => s + monatlichBetrag(p), 0) + aboMon
+  const einnahmenMon = einnahmen.reduce((s, p) => s + anteilMonatlich(p), 0) + aboMon
   const ausgabenMonVoll = ausgaben.reduce((s, p) => s + monatlichBetrag(p), 0)
   const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil
   const ergebnisMon = einnahmenMon - ausgabenMon
@@ -261,6 +265,10 @@ function AboZeile({ a, onEdit, onDelete }) {
   const aktiv = aboAktiv(a)
   const ende = aboEnde(a)
   const zukunft = new Date(a.startdatum) > new Date()
+  const anteil = a.anteil_prozent != null ? a.anteil_prozent : 100
+  const voll = aboVollMonatlich(a)
+  const anteilBetrag = voll * (anteil / 100)
+  const geteilt = anteil < 100
   return (
     <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', opacity: aktiv ? 1 : 0.6 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -272,12 +280,13 @@ function AboZeile({ a, onEdit, onDelete }) {
         </p>
         <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5', margin: '3px 0 0' }}>
           Start: {new Date(a.startdatum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })} · Ende: {ende.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          {geteilt && <> · dein Anteil {anteil % 1 === 0 ? anteil : anteil.toFixed(1)} %</>}
           {a.notiz && <> · {a.notiz}</>}
         </p>
       </div>
       <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: aktiv ? '#166534' : '#8aada5', margin: 0 }}>{euro((a.anzahl || 0) * def.preis)}</p>
-        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>/ Monat</p>
+        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '15px', fontWeight: 600, color: aktiv ? '#166534' : '#8aada5', margin: 0 }}>{euro(anteilBetrag)}<span style={{ fontSize: '11px', color: '#8aada5', fontWeight: 400 }}> / Mon.</span></p>
+        {geteilt && <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#8aada5', margin: '2px 0 0' }}>von {euro(voll)} gesamt</p>}
       </div>
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={onEdit} title="Bearbeiten" style={{ ...btn(false, false), padding: '6px 10px' }}>✎</button>
@@ -292,19 +301,25 @@ function FitnessAboModal({ abo, onClose, onDone }) {
   const [klasse, setKlasse] = useState(abo?.klasse ?? 1)
   const [anzahl, setAnzahl] = useState(abo?.anzahl ?? 1)
   const [startdatum, setStartdatum] = useState(abo?.startdatum ?? new Date().toISOString().split('T')[0])
+  const [anteil, setAnteil] = useState(abo?.anteil_prozent != null ? abo.anteil_prozent : 100)
   const [notiz, setNotiz] = useState(abo?.notiz ?? '')
   const [saving, setSaving] = useState(false)
+  const [fehler, setFehler] = useState(null)
 
   const def = FITNESS_KLASSEN[klasse]
   const gueltig = anzahl >= 1 && startdatum
+  const anteilFaktor = (parseFloat(anteil) || 100) / 100
 
   async function speichern() {
     if (!gueltig) return
     setSaving(true)
-    const data = { klasse: parseInt(klasse), anzahl: parseInt(anzahl), startdatum, notiz: notiz.trim() || null }
-    if (isNeu) await supabase.from('fitnessabos').insert(data)
-    else await supabase.from('fitnessabos').update(data).eq('id', abo.id)
+    setFehler(null)
+    const data = { klasse: parseInt(klasse), anzahl: parseInt(anzahl), startdatum, anteil_prozent: parseFloat(anteil) || 100, notiz: notiz.trim() || null }
+    const result = isNeu
+      ? await supabase.from('fitnessabos').insert(data)
+      : await supabase.from('fitnessabos').update(data).eq('id', abo.id)
     setSaving(false)
+    if (result.error) { setFehler(result.error.message); return }
     onDone()
   }
 
@@ -355,9 +370,30 @@ function FitnessAboModal({ abo, onClose, onDone }) {
             </div>
           </div>
 
+          {/* Anteil */}
+          <div>
+            <label style={lbl}>Dein Anteil</label>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {ANTEIL_BUTTONS.map(b => {
+                const aktiv = Math.abs((parseFloat(anteil) || 0) - b.wert) < 0.01
+                return (
+                  <button key={b.label} type="button" onClick={() => setAnteil(b.wert)}
+                    style={{ padding: '7px 16px', borderRadius: '8px', border: `1px solid ${aktiv ? '#3d675e' : '#d1e0db'}`, background: aktiv ? '#f0f5f4' : '#fff', color: aktiv ? '#3d675e' : '#8aada5', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: aktiv ? 600 : 400, cursor: 'pointer' }}>
+                    {b.label}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="number" step="0.01" min="0" max="100" value={anteil} onChange={e => setAnteil(e.target.value)} style={{ ...inp, width: '120px' }} />
+              <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#8aada5' }}>%</span>
+            </div>
+          </div>
+
           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px' }}>
             <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#166534', margin: 0 }}>
-              Monatliche Einnahme: <strong>{euro(anzahl * def.preis)}</strong>
+              Dein Anteil / Monat: <strong>{euro(anzahl * def.preis * anteilFaktor)}</strong>
+              {anteilFaktor < 1 && <span style={{ color: '#5a8a80', fontWeight: 400 }}> (von {euro(anzahl * def.preis)} gesamt)</span>}
             </p>
             <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#5a8a80', margin: '4px 0 0' }}>
               {anzahl}× {euro(def.preis)} · Laufzeit {def.monate} Monate
@@ -370,6 +406,12 @@ function FitnessAboModal({ abo, onClose, onDone }) {
             <input value={notiz} onChange={e => setNotiz(e.target.value)} placeholder="z.B. Firmenkunde" style={inp} />
           </div>
         </div>
+
+        {fehler && (
+          <div style={{ margin: '0 28px', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#991b1b', margin: 0 }}>Fehler: {fehler}</p>
+          </div>
+        )}
 
         <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
           <button onClick={onClose} style={{ ...btn(false, false), flex: 1, padding: '10px' }}>Abbrechen</button>
@@ -424,7 +466,7 @@ function PostenZeile({ p, onEdit, onDelete }) {
   const mon = monatlichBetrag(p)
   const anteil = p.anteil_prozent != null ? p.anteil_prozent : 100
   const anteilMon = anteilMonatlich(p)
-  const geteilt = p.typ === 'ausgabe' && anteil < 100
+  const geteilt = anteil < 100
   const intervallLabel = INTERVALLE.find(i => i.key === p.intervall)?.label || p.intervall
   return (
     <div style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '10px', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -477,6 +519,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
     notiz: posten?.notiz ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [fehler, setFehler] = useState(null)
   const kategorien = aktTyp === 'einnahme' ? EINNAHME_KATEGORIEN : AUSGABE_KATEGORIEN
   const gueltig = form.bezeichnung.trim() && form.betrag !== '' && !isNaN(parseFloat(form.betrag))
 
@@ -485,6 +528,7 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
   async function speichern() {
     if (!gueltig) return
     setSaving(true)
+    setFehler(null)
     const data = {
       typ: aktTyp,
       bezeichnung: form.bezeichnung.trim(),
@@ -492,14 +536,19 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
       anbieter: form.anbieter.trim() || null,
       betrag: parseFloat(form.betrag),
       intervall: form.intervall,
-      anteil_prozent: aktTyp === 'ausgabe' ? (parseFloat(form.anteil) || 100) : 100,
+      anteil_prozent: parseFloat(form.anteil) || 100,
       naechste_zahlung: form.naechste_zahlung || null,
       vertragsnr: form.vertragsnr.trim() || null,
       notiz: form.notiz.trim() || null,
     }
-    if (isNeu) await supabase.from('finanzposten').insert(data)
-    else await supabase.from('finanzposten').update(data).eq('id', posten.id)
+    const result = isNeu
+      ? await supabase.from('finanzposten').insert(data)
+      : await supabase.from('finanzposten').update(data).eq('id', posten.id)
     setSaving(false)
+    if (result.error) {
+      setFehler(result.error.message)
+      return
+    }
     onDone()
   }
 
@@ -556,8 +605,8 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
             </p>
           )}
 
-          {/* Anteil (nur bei Ausgaben) */}
-          {aktTyp === 'ausgabe' && (
+          {/* Anteil (Ausgaben + Einnahmen) */}
+          {true && (
             <div>
               <label style={lbl}>Dein Anteil</label>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
@@ -601,6 +650,12 @@ function FinanzModal({ posten, typ, onClose, onDone }) {
               placeholder="z.B. Kündigungsfrist 3 Monate" style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
           </div>
         </div>
+
+        {fehler && (
+          <div style={{ margin: '0 28px', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px' }}>
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#991b1b', margin: 0 }}>Fehler: {fehler}</p>
+          </div>
+        )}
 
         <div style={{ padding: '16px 28px 24px', display: 'flex', gap: '8px', borderTop: '1px solid #f0f5f4' }}>
           <button onClick={onClose} style={{ ...btn(false, false), flex: 1, padding: '10px' }}>Abbrechen</button>
