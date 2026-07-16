@@ -7,6 +7,7 @@ import Lieferanten from './pages/Lieferanten'
 import Bestellungen from './pages/Bestellungen'
 import Statistik from './pages/Statistik'
 import Bestellt from './pages/Bestellt'
+import Finanzen from './pages/Finanzen'
 import Einstellungen from './pages/Einstellungen'
 import Login from './pages/Login'
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="bestellungen" element={<Bestellungen />} />
           <Route path="bestellt" element={<Bestellt />} />
           <Route path="statistik" element={<Statistik />} />
+          <Route path="finanzen" element={<Finanzen />} />
           <Route path="einstellungen" element={<Einstellungen />} />
         </Route>
       </Routes>
