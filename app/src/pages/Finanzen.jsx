@@ -84,6 +84,22 @@ function aboNettoImMonat(a, start, ende) {
   return nettoVonBrutto(aboVollMonatlich(a) * (anteil / 100), mwstProz(a))
 }
 
+// Fällt für diesen Posten (Intervall + nächste Zahlung) eine Zahlung in den Monat [start, ende)?
+function zahlungImMonat(intervall, naechsteZahlung, start, ende) {
+  const step = intervall === 'quartalsweise' ? 3 : intervall === 'jaehrlich' ? 12 : 1
+  const basis = naechsteZahlung ? new Date(naechsteZahlung) : new Date()
+  let d = new Date(basis.getFullYear(), basis.getMonth(), 1) // auf Monatsanfang normieren
+  // vorspulen, bis die Zahlung im oder nach dem Fenster liegt
+  let schutz = 0
+  while (d < start && schutz < 240) { d.setMonth(d.getMonth() + step); schutz++ }
+  return d >= start && d < ende
+}
+// Anteiliger Betrag einer einzelnen Zahlung (nicht normalisiert)
+function betragAnteil(p) {
+  const anteil = p.anteil_prozent != null ? p.anteil_prozent : 100
+  return (p.betrag || 0) * (anteil / 100)
+}
+
 const euro = (n) => '€' + n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const inp = {
@@ -109,6 +125,7 @@ export default function Finanzen() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // { typ } für neu, oder posten-Objekt zum Bearbeiten
   const [aboModal, setAboModal] = useState(null) // true für neu, oder abo-Objekt zum Bearbeiten
+  const [prognoseMonate, setPrognoseMonate] = useState(3)
 
   useEffect(() => { if (entsperrt) laden() }, [entsperrt])
 
@@ -171,13 +188,14 @@ export default function Finanzen() {
   const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil, brutto
   const ergebnisMon = einnahmenNettoMon - ausgabenMon
 
-  // Prognose: nächste 3 Monate (Abos je nach Laufzeit, übrige Posten konstant monatlich)
-  const einnahmenNettoOhneAbo = einnahmen.reduce((s, p) => s + nettoMonatlich(p), 0)
-  const prognose = [0, 1, 2].map(off => {
+  // Prognose: pro Monat nach echter Fälligkeit (Intervall + nächste Zahlung), Abos nach Laufzeit
+  const prognose = Array.from({ length: prognoseMonate }, (_, off) => {
     const { start, ende, label } = monatsBereich(off)
-    const aboNetto = abos.reduce((s, a) => s + aboNettoImMonat(a, start, ende), 0)
-    const einNetto = einnahmenNettoOhneAbo + aboNetto
-    return { label, einNetto, ausg: ausgabenMon, ergebnis: einNetto - ausgabenMon }
+    const einNetto =
+      einnahmen.reduce((s, p) => s + (zahlungImMonat(p.intervall, p.naechste_zahlung, start, ende) ? nettoVonBrutto(betragAnteil(p), mwstProz(p)) : 0), 0)
+      + abos.reduce((s, a) => s + aboNettoImMonat(a, start, ende), 0)
+    const ausg = ausgaben.reduce((s, p) => s + (zahlungImMonat(p.intervall, p.naechste_zahlung, start, ende) ? betragAnteil(p) : 0), 0)
+    return { label, einNetto, ausg, ergebnis: einNetto - ausg }
   })
 
   // Fitness-Abos nach Klasse gruppieren
@@ -216,9 +234,14 @@ export default function Finanzen() {
         />
       </div>
 
-      {/* Prognose – nächste 3 Monate */}
+      {/* Prognose */}
       <div style={{ marginBottom: '28px' }}>
-        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', letterSpacing: '0.06em', color: '#5a8a80', textTransform: 'uppercase', margin: '0 0 10px' }}>Prognose · nächste 3 Monate</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px', flexWrap: 'wrap', gap: '8px' }}>
+          <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', letterSpacing: '0.06em', color: '#5a8a80', textTransform: 'uppercase', margin: 0 }}>Prognose · nächste {prognoseMonate} Monate</p>
+          <button onClick={() => setPrognoseMonate(prognoseMonate === 3 ? 12 : 3)} style={{ ...btn(false, false), padding: '6px 14px' }}>
+            {prognoseMonate === 3 ? '12 Monate anzeigen ▾' : 'Weniger anzeigen ▴'}
+          </button>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
           {prognose.map((m, i) => (
             <div key={i} style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '16px 18px' }}>
