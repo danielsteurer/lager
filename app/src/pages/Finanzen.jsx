@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 const FINANZEN_PASSWORT = 'werkeins2026'
 
 const AUSGABE_KATEGORIEN = ['Versicherungen', 'Software & Systeme', 'Personal / Gehälter', 'Miete & Betriebskosten', 'Sonstiges']
-const EINNAHME_KATEGORIEN = ['Fitnessabos', 'Sonstiges']
+const EINNAHME_KATEGORIEN = ['Fitnessabos', 'Mieten', 'Sonstiges']
 const INTERVALLE = [
   { key: 'monatlich', label: 'Monatlich', faktor: 1 },
   { key: 'quartalsweise', label: 'Quartalsweise', faktor: 1 / 3 },
@@ -66,6 +66,23 @@ function aboMonatlich(a) {
 }
 // Netto-Anteil (monatlich) eines Abos
 function aboNettoMonatlich(a) { return nettoVonBrutto(aboMonatlich(a), mwstProz(a)) }
+
+// Monatsbereich für Prognose (offset 0 = aktueller Monat)
+function monatsBereich(offset) {
+  const jetzt = new Date()
+  const start = new Date(jetzt.getFullYear(), jetzt.getMonth() + offset, 1)
+  const ende = new Date(jetzt.getFullYear(), jetzt.getMonth() + offset + 1, 1) // exklusiv
+  return { start, ende, label: start.toLocaleDateString('de-AT', { month: 'long', year: 'numeric' }) }
+}
+// Abo im Zeitraum aktiv? (Laufzeit überschneidet den Monat)
+function aboAktivImZeitraum(a, start, ende) {
+  return new Date(a.startdatum) < ende && aboEnde(a) > start
+}
+function aboNettoImMonat(a, start, ende) {
+  if (!aboAktivImZeitraum(a, start, ende)) return 0
+  const anteil = a.anteil_prozent != null ? a.anteil_prozent : 100
+  return nettoVonBrutto(aboVollMonatlich(a) * (anteil / 100), mwstProz(a))
+}
 
 const euro = (n) => '€' + n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -154,6 +171,15 @@ export default function Finanzen() {
   const ausgabenMon = ausgaben.reduce((s, p) => s + anteilMonatlich(p), 0) // dein Anteil, brutto
   const ergebnisMon = einnahmenNettoMon - ausgabenMon
 
+  // Prognose: nächste 3 Monate (Abos je nach Laufzeit, übrige Posten konstant monatlich)
+  const einnahmenNettoOhneAbo = einnahmen.reduce((s, p) => s + nettoMonatlich(p), 0)
+  const prognose = [0, 1, 2].map(off => {
+    const { start, ende, label } = monatsBereich(off)
+    const aboNetto = abos.reduce((s, a) => s + aboNettoImMonat(a, start, ende), 0)
+    const einNetto = einnahmenNettoOhneAbo + aboNetto
+    return { label, einNetto, ausg: ausgabenMon, ergebnis: einNetto - ausgabenMon }
+  })
+
   // Fitness-Abos nach Klasse gruppieren
   const aboGruppen = { 1: [], 2: [], 3: [] }
   abos.forEach(a => { if (aboGruppen[a.klasse]) aboGruppen[a.klasse].push(a) })
@@ -188,6 +214,32 @@ export default function Finanzen() {
           border={ergebnisMon >= 0 ? '#bbf7d0' : '#fecaca'}
           sub={'netto − Ausgaben · ' + (ergebnisMon >= 0 ? '+' : '−') + euro(Math.abs(ergebnisMon * 12)).slice(1) + ' / Jahr'}
         />
+      </div>
+
+      {/* Prognose – nächste 3 Monate */}
+      <div style={{ marginBottom: '28px' }}>
+        <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', letterSpacing: '0.06em', color: '#5a8a80', textTransform: 'uppercase', margin: '0 0 10px' }}>Prognose · nächste 3 Monate</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          {prognose.map((m, i) => (
+            <div key={i} style={{ background: '#fff', border: '1px solid #e2ebe8', borderRadius: '12px', padding: '16px 18px' }}>
+              <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, color: '#1a2e2a', margin: '0 0 10px', textTransform: 'capitalize' }}>{m.label}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5' }}>Einnahmen netto</span>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#166534', fontWeight: 600 }}>{euro(m.einNetto)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: '#8aada5' }}>Ausgaben</span>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>−{euro(m.ausg).slice(1)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f0f5f4' }}>
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#1a2e2a', fontWeight: 500 }}>Ergebnis</span>
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '14px', fontWeight: 700, color: m.ergebnis >= 0 ? '#166534' : '#991b1b' }}>
+                  {(m.ergebnis >= 0 ? '+' : '−') + euro(Math.abs(m.ergebnis)).slice(1)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
