@@ -1,32 +1,27 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const USERS = {
-  daniel: '1234',
-  vanessa: '1234',
-}
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
-  const [benutzer, setBenutzer] = useState('')
+  const [email, setEmail] = useState('')
   const [passwort, setPasswort] = useState('')
   const [fehler, setFehler] = useState('')
+  const [laden, setLaden] = useState(false)
   const navigate = useNavigate()
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault()
     setFehler('')
+    setLaden(true)
 
-    if (!benutzer.trim() || !passwort.trim()) {
-      setFehler('Benutzername und Passwort erforderlich')
-      return
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: passwort })
 
-    if (USERS[benutzer.toLowerCase()] === passwort) {
-      localStorage.setItem('lager_user', benutzer.toLowerCase())
-      navigate('/dashboard')
+    if (error) {
+      setFehler('Ungültige E-Mail oder Passwort')
     } else {
-      setFehler('Ungültiger Benutzername oder Passwort')
+      navigate('/dashboard')
     }
+    setLaden(false)
   }
 
   return (
@@ -44,13 +39,13 @@ export default function Login() {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5a8a80' }}>
-              Benutzername
+              E-Mail
             </label>
             <input
-              type="text"
-              value={benutzer}
-              onChange={e => setBenutzer(e.target.value)}
-              placeholder="daniel oder vanessa"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="E-Mail-Adresse"
               autoFocus
               style={{ padding: '10px 12px', border: '1px solid #d1e0db', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#1a2e2a', outline: 'none', background: '#fff' }}
             />
@@ -79,15 +74,12 @@ export default function Login() {
 
           <button
             type="submit"
-            style={{ padding: '10px 16px', background: '#3d675e', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, cursor: 'pointer', marginTop: '8px' }}
+            disabled={laden}
+            style={{ padding: '10px 16px', background: '#3d675e', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 500, cursor: laden ? 'default' : 'pointer', opacity: laden ? 0.7 : 1, marginTop: '8px' }}
           >
-            Login
+            {laden ? 'Anmelden…' : 'Login'}
           </button>
         </form>
-
-        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '11px', color: '#8aada5', margin: '20px 0 0', textAlign: 'center' }}>
-          Demo: daniel / vanessa, Passwort: 1234
-        </p>
       </div>
     </div>
   )

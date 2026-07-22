@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useUndo } from '../lib/UndoContext'
+import { supabase } from '../lib/supabase'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -15,10 +17,16 @@ const nav = [
 export default function Layout() {
   const { stack, pop } = useUndo()
   const navigate = useNavigate()
-  const user = localStorage.getItem('lager_user')
+  const [userEmail, setUserEmail] = useState('')
 
-  function handleLogout() {
-    localStorage.removeItem('lager_user')
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) setUserEmail(session.user.email.split('@')[0])
+    })
+  }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
     navigate('/login')
   }
 
@@ -59,7 +67,7 @@ export default function Layout() {
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#8aada5' }}>
-            {user}
+            {userEmail}
           </span>
           <button
             onClick={pop}

@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { UndoProvider } from './lib/UndoContext'
+import { supabase } from './lib/supabase'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Artikel from './pages/Artikel'
@@ -12,8 +14,16 @@ import Einstellungen from './pages/Einstellungen'
 import Login from './pages/Login'
 
 function ProtectedRoute({ children }) {
-  const isLoggedIn = localStorage.getItem('lager_user')
-  return isLoggedIn ? children : <Navigate to="/login" replace />
+  const [session, setSession] = useState(undefined)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setSession(session))
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (session === undefined) return null
+  return session ? children : <Navigate to="/login" replace />
 }
 
 export default function App() {
