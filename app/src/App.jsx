@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { UndoProvider } from './lib/UndoContext'
 import { supabase } from './lib/supabase'
 import Layout from './components/Layout'
@@ -12,13 +12,19 @@ import Bestellt from './pages/Bestellt'
 import Finanzen from './pages/Finanzen'
 import Einstellungen from './pages/Einstellungen'
 import Login from './pages/Login'
-
+import UpdatePassword from './pages/UpdatePassword'
 function ProtectedRoute({ children }) {
   const [session, setSession] = useState(undefined)
+  const navigate = useNavigate()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/update-password')
+      }
+      setSession(session)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -32,6 +38,7 @@ export default function App() {
       <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
